@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:wiki.eryajf.net)",
+      "Bash(go version:*)",
+      "Bash(set:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(setx:*)",
+      "Bash(powershell:*)",
+      "Bash(ping:*)",
+      "Bash(go build:*)",
+      "Bash(findstr:*)",
+      "Bash(npm:*)",
+      "Bash(go env -w:*)",
+      "Bash(go list:*)",
+      "Bash(go env:*)",
+      "Bash(go doc -all:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(python -c:*)",
+      "Bash(taskkill:*)",
+      "Bash(start:*)",
+      "WebSearch"
+    ]
+  }
+}

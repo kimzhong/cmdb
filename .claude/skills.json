@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "skills": {
+    "go-backend": {
+      "description": "Go 后端开发规范 - 适用于 cmd/, internal/, config/, database/ 目录下的 Go 代码",
+      "patterns": [
+        "**/*.go",
+        "go.mod",
+        "go.sum"
+      ],
+      "exclude": [
+        "web/**"
+      ],
+      "rules": [
+        "项目结构必须遵循: cmd/, internal/, config/, database/, pkg/ 目录",
+        "入口文件在 cmd/server/main.go",
+        "路由定义在 internal/routers/router.go",
+        "数据模型在 internal/models/models.go",
+        "中间件在 internal/middleware/",
+        "业务逻辑在 internal/services/",
+        "数据库操作在 database/mongodb.go",
+        "配置加载在 config/config.go",
+        "命名规范: 驼峰命名，缩写词全大写 (URL, HTTP, API, ID, JSON)",
+        "错误处理: 必须使用 wrap 包装 (fmt.Errorf(\"w%\", err))",
+        "配置: 全部从 config.yaml 读取，禁止硬编码",
+        "数据库: MongoDB 操作使用官方的 mongo-driver",
+        "API: 必须有 JWT 认证中间件 (internal/middleware/auth.go)",
+        "响应格式: 统一使用 { code: int, data: interface{}, message: string }",
+        "日志: 使用标准 log 包或 zap",
+        "CORS: 使用 internal/middleware/cors.go 中间件"
+      ],
+      "commands": {
+        "build": "go build -o cmdb.exe ./cmd/server",
+        "run": "go run cmd/server/main.go",
+        "test": "go test -v ./...",
+        "tidy": "go mod tidy",
+        "vet": "go vet ./..."
+      },
+      "validation": {
+        "lint": "golint ./...",
+        "format": "gofmt -w .",
+        "forbidden": [
+          "fmt.Printf",
+          "panic(",
+          "TODO(",
+          "FIXME("
+        ]
+      }
+    },
+    "react-frontend": {
+      "description": "Vue 3 前端开发规范 - 适用于 web/ 目录下的 Vue/JS 代码",
+      "patterns": [
+        "web/src/**/*.{vue,js,jsx,ts,tsx}",
+        "web/package.json",
+        "web/vue.config.js"
+      ],
+      "rules": [
+        "技术栈: Vue 3 + Composition API + Script Setup",
+        "目录结构: views/, components/, api/, store/, router/",
+        "页面组件在 web/src/views/",
+        "通用组件在 web/src/components/",
+        "API 调用统一在 web/src/api/index.js",
+        "路由配置在 web/src/router/index.js",
+        "状态管理在 web/src/store/",
+        "UI 组件库: Ant Design Vue",
+        "必须使用 Composition API (<script setup> 或 setup())",
+        "组件命名: 大驼峰 (UserForm.vue) 或 kebab-case",
+        "API 请求使用 axios，配置拦截器",
+        "列表必须分页 (pagination)",
+        "加载状态必须显示 (loading)",
+        "表单必须有校验规则",
+        "所有用户输入必须验证",
+        "错误必须提示 (message.error)",
+        "删除操作必须确认 (confirm)"
+      ],
+      "commands": {
+        "dev": "cd web && npm run serve",
+        "build": "cd web && npm run build",
+        "lint": "cd web && npm run lint",
+        "install": "cd web && npm install"
+      },
+      "validation": {
+        "forbidden": [
+          "console.log(",
+          "document.querySelector",
+          "document.getElementById",
+          "innerHTML"
+        ]
+      }
+    },
+    "mongodb": {
+      "description": "MongoDB 数据库操作规范",
+      "patterns": [
+        "database/**/*.go",
+        "internal/models/**/*.go"
+      ],
+      "rules": [
+        "使用 mongo-driver 官方驱动",
+        "连接配置在 database/mongodb.go",
+        "集合名使用复数形式 (users, resources, models)",
+        "ObjectID 必须正确处理",
+        "查询必须处理空值",
+        "更新操作使用 UpdateOne 或 UpdateMany",
+        "删除操作使用 DeleteOne 或 DeleteMany",
+        "索引需要考虑性能"
+      ]
+    },
+    "api-restful": {
+      "description": "RESTful API 设计规范",
+      "patterns": [
+        "internal/routers/**/*.go",
+        "internal/services/**/*.go"
+      ],
+      "rules": [
+        "路径: /api/v1/{resource}",
+        "GET 获取, POST 创建, PUT 更新, DELETE 删除",
+        "URL 参数用 :id (如 /users/:id)",
+        "查询参数用 ?page=1&size=10",
+        "响应格式: { code: 200, data: {}, message: '' }",
+        "错误码: 200 成功, 400 参数错误, 401 未授权, 404 未找到, 500 服务器错误",
+        "分页返回: { list: [], total: 0, page: 1, pageSize: 10 }",
+        "列表接口必须支持分页"
+      ]
+    }
+  }
+}

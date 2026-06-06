@@ -1,0 +1,99 @@
+2026/06/03 20:55:48 Configuration loaded successfully
+2026/06/03 20:55:48 Connected to MongoDB: cmdb
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /api/v1/login             --> cmdb/internal/routers.login (4 handlers)
+[GIN-debug] POST   /api/v1/ldap/login        --> cmdb/internal/routers.ldapLogin (4 handlers)
+[GIN-debug] POST   /api/v1/users/register    --> cmdb/internal/routers.registerUser (4 handlers)
+[GIN-debug] GET    /api/v1/users             --> cmdb/internal/routers.listUsers (5 handlers)
+[GIN-debug] GET    /api/v1/users/:id         --> cmdb/internal/routers.getUser (5 handlers)
+[GIN-debug] PUT    /api/v1/users/:id         --> cmdb/internal/routers.updateUser (5 handlers)
+[GIN-debug] DELETE /api/v1/users/:id         --> cmdb/internal/routers.deleteUser (5 handlers)
+[GIN-debug] POST   /api/v1/logout            --> cmdb/internal/routers.logout (5 handlers)
+[GIN-debug] GET    /api/v1/model-groups      --> cmdb/internal/routers.listModelGroups (5 handlers)
+[GIN-debug] POST   /api/v1/model-groups      --> cmdb/internal/routers.createModelGroup (5 handlers)
+[GIN-debug] GET    /api/v1/model-groups/:id  --> cmdb/internal/routers.getModelGroup (5 handlers)
+[GIN-debug] PUT    /api/v1/model-groups/:id  --> cmdb/internal/routers.updateModelGroup (5 handlers)
+[GIN-debug] DELETE /api/v1/model-groups/:id  --> cmdb/internal/routers.deleteModelGroup (5 handlers)
+[GIN-debug] GET    /api/v1/models            --> cmdb/internal/routers.listModels (5 handlers)
+[GIN-debug] POST   /api/v1/models            --> cmdb/internal/routers.createModel (5 handlers)
+[GIN-debug] GET    /api/v1/models/:id        --> cmdb/internal/routers.getModel (5 handlers)
+[GIN-debug] PUT    /api/v1/models/:id        --> cmdb/internal/routers.updateModel (5 handlers)
+[GIN-debug] DELETE /api/v1/models/:id        --> cmdb/internal/routers.deleteModel (5 handlers)
+[GIN-debug] GET    /api/v1/models/:id/details --> cmdb/internal/routers.getModelDetails (5 handlers)
+[GIN-debug] GET    /api/v1/models/:id/field-groups --> cmdb/internal/routers.listFieldGroups (5 handlers)
+[GIN-debug] POST   /api/v1/field-groups      --> cmdb/internal/routers.createFieldGroup (5 handlers)
+[GIN-debug] PUT    /api/v1/field-groups/:id  --> cmdb/internal/routers.updateFieldGroup (5 handlers)
+[GIN-debug] DELETE /api/v1/field-groups/:id  --> cmdb/internal/routers.deleteFieldGroup (5 handlers)
+[GIN-debug] GET    /api/v1/field-groups/:id/fields --> cmdb/internal/routers.listFields (5 handlers)
+[GIN-debug] POST   /api/v1/fields            --> cmdb/internal/routers.createField (5 handlers)
+[GIN-debug] PUT    /api/v1/fields/:id        --> cmdb/internal/routers.updateField (5 handlers)
+[GIN-debug] DELETE /api/v1/fields/:id        --> cmdb/internal/routers.deleteField (5 handlers)
+[GIN-debug] GET    /api/v1/models/:id/relations --> cmdb/internal/routers.listRelations (5 handlers)
+[GIN-debug] POST   /api/v1/relations         --> cmdb/internal/routers.createRelation (5 handlers)
+[GIN-debug] DELETE /api/v1/relations/:id     --> cmdb/internal/routers.deleteRelation (5 handlers)
+[GIN-debug] GET    /api/v1/resources/model/:modelId --> cmdb/internal/routers.listResources (5 handlers)
+[GIN-debug] POST   /api/v1/resources         --> cmdb/internal/routers.createResource (5 handlers)
+[GIN-debug] GET    /api/v1/resources/:id     --> cmdb/internal/routers.getResource (5 handlers)
+[GIN-debug] PUT    /api/v1/resources/:id     --> cmdb/internal/routers.updateResource (5 handlers)
+[GIN-debug] DELETE /api/v1/resources/:id     --> cmdb/internal/routers.deleteResource (5 handlers)
+[GIN-debug] POST   /api/v1/resources/:id/relations --> cmdb/internal/routers.createResourceRelation (5 handlers)
+[GIN-debug] GET    /api/v1/resources/:id/relations --> cmdb/internal/routers.getResourceRelations (5 handlers)
+[GIN-debug] DELETE /api/v1/resources/:id/relations/:relationIdentify --> cmdb/internal/routers.deleteResourceRelation (5 handlers)
+[GIN-debug] POST   /api/v1/resources/:id/tags --> cmdb/internal/routers.addResourceTag (5 handlers)
+[GIN-debug] DELETE /api/v1/resources/:id/tags/:tagId --> cmdb/internal/routers.removeResourceTag (5 handlers)
+[GIN-debug] GET    /api/v1/search            --> cmdb/internal/routers.globalSearch (5 handlers)
+[GIN-debug] GET    /api/v1/tags              --> cmdb/internal/routers.listTagKeys (5 handlers)
+[GIN-debug] POST   /api/v1/tags              --> cmdb/internal/routers.createTagKey (5 handlers)
+[GIN-debug] PUT    /api/v1/tags/:id          --> cmdb/internal/routers.updateTagKey (5 handlers)
+[GIN-debug] DELETE /api/v1/tags/:id          --> cmdb/internal/routers.deleteTagKey (5 handlers)
+[GIN-debug] GET    /api/v1/tags/:id/values   --> cmdb/internal/routers.listTagValues (5 handlers)
+[GIN-debug] GET    /api/v1/tags/values/all   --> cmdb/internal/routers.listAllTagValues (5 handlers)
+[GIN-debug] POST   /api/v1/tags/values       --> cmdb/internal/routers.createTagValue (5 handlers)
+[GIN-debug] PUT    /api/v1/tags/values/:id   --> cmdb/internal/routers.updateTagValue (5 handlers)
+[GIN-debug] DELETE /api/v1/tags/values/:id   --> cmdb/internal/routers.deleteTagValue (5 handlers)
+[GIN-debug] POST   /api/v1/tags/values/:id/bind --> cmdb/internal/routers.bindResourceToTag (5 handlers)
+[GIN-debug] DELETE /api/v1/tags/values/:id/unbind --> cmdb/internal/routers.unbindResourceFromTag (5 handlers)
+[GIN-debug] GET    /api/v1/tags/search       --> cmdb/internal/routers.searchByTag (5 handlers)
+[GIN-debug] GET    /api/v1/stats             --> cmdb/internal/routers.getStats (5 handlers)
+[GIN-debug] GET    /api/v1/apps              --> cmdb/internal/routers.listApps (5 handlers)
+[GIN-debug] POST   /api/v1/apps              --> cmdb/internal/routers.createApp (5 handlers)
+[GIN-debug] GET    /api/v1/apps/:id          --> cmdb/internal/routers.getApp (5 handlers)
+[GIN-debug] PUT    /api/v1/apps/:id          --> cmdb/internal/routers.updateApp (5 handlers)
+[GIN-debug] DELETE /api/v1/apps/:id          --> cmdb/internal/routers.deleteApp (5 handlers)
+[GIN-debug] GET    /api/v1/apps/:id/resources --> cmdb/internal/routers.getAppResources (5 handlers)
+[GIN-debug] POST   /api/v1/apps/:id/resources --> cmdb/internal/routers.bindAppResource (5 handlers)
+[GIN-debug] DELETE /api/v1/apps/:id/resources/:resourceId --> cmdb/internal/routers.unbindAppResource (5 handlers)
+[GIN-debug] GET    /api/v1/businesses        --> cmdb/internal/routers.listBusinesses (5 handlers)
+[GIN-debug] POST   /api/v1/businesses        --> cmdb/internal/routers.createBusiness (5 handlers)
+[GIN-debug] GET    /api/v1/businesses/:id    --> cmdb/internal/routers.getBusiness (5 handlers)
+[GIN-debug] PUT    /api/v1/businesses/:id    --> cmdb/internal/routers.updateBusiness (5 handlers)
+[GIN-debug] DELETE /api/v1/businesses/:id    --> cmdb/internal/routers.deleteBusiness (5 handlers)
+[GIN-debug] GET    /api/v1/businesses/:id/apps --> cmdb/internal/routers.getBusinessApps (5 handlers)
+[GIN-debug] GET    /api/v1/tasks             --> cmdb/internal/routers.listTasks (5 handlers)
+[GIN-debug] POST   /api/v1/tasks             --> cmdb/internal/routers.createTask (5 handlers)
+[GIN-debug] GET    /api/v1/tasks/:id         --> cmdb/internal/routers.getTask (5 handlers)
+[GIN-debug] PUT    /api/v1/tasks/:id         --> cmdb/internal/routers.updateTask (5 handlers)
+[GIN-debug] DELETE /api/v1/tasks/:id         --> cmdb/internal/routers.deleteTask (5 handlers)
+[GIN-debug] POST   /api/v1/tasks/:id/run     --> cmdb/internal/routers.runTask (5 handlers)
+2026/06/03 20:55:48 Server starting on 0.0.0.0:8081
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on 0.0.0.0:8081
+[GIN] 2026/06/03 - 20:55:51 | 200 |     93.8041ms |       127.0.0.1 | POST     "/api/v1/login"
+[GIN] 2026/06/03 - 20:55:51 | 500 |       1.773ms |       127.0.0.1 | POST     "/api/v1/tags"
+[GIN] 2026/06/03 - 20:56:36 | 200 |     91.5183ms |       127.0.0.1 | POST     "/api/v1/login"
+[GIN] 2026/06/03 - 20:56:37 | 200 |       66.59ms |       127.0.0.1 | POST     "/api/v1/tags"
+[GIN] 2026/06/03 - 20:56:37 | 200 |      1.0631ms |       127.0.0.1 | POST     "/api/v1/tags"
+[GIN] 2026/06/03 - 20:57:15 | 200 |     10.3916ms |       127.0.0.1 | GET      "/api/v1/models"
+[GIN] 2026/06/03 - 20:57:15 | 200 |     54.1813ms |       127.0.0.1 | GET      "/api/v1/tags"
+[GIN] 2026/06/03 - 20:57:52 | 200 |     47.1585ms |       127.0.0.1 | POST     "/api/v1/tags"
+[GIN] 2026/06/03 - 20:57:52 | 200 |      1.8936ms |       127.0.0.1 | GET      "/api/v1/tags"
+[GIN] 2026/06/03 - 20:58:06 | 200 |     60.2266ms |       127.0.0.1 | GET      "/api/v1/stats"
+[GIN] 2026/06/03 - 20:58:11 | 200 |     48.6282ms |       127.0.0.1 | GET      "/api/v1/businesses?pageSize=100"
+[GIN] 2026/06/03 - 20:58:11 | 200 |      2.9618ms |       127.0.0.1 | GET      "/api/v1/apps?pageSize=100"
+[GIN] 2026/06/03 - 20:58:12 | 200 |      1.5161ms |       127.0.0.1 | GET      "/api/v1/models"

@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "skills": {
+    "autoLoad": true,
+    "preferredSkills": ["go-backend", "react-frontend", "mongodb", "api-restful"],
+    "showSkillSuggestions": true
+  },
+  "editor": {
+    "formatOnSave": true,
+    "autoSave": "afterDelay",
+    "insertFinalNewline": true,
+    "trimTrailingWhitespace": true
+  },
+  "validation": {
+    "blockOnError": false,
+    "lintOnBuild": true,
+    "showWarnings": true
+  },
+  "project": {
+    "language": "go",
+    "framework": "gin",
+    "database": "mongodb",
+    "frontend": "vue3"
+  },
+  "commands": {
+    "build-backend": "go build -o cmdb.exe ./cmd/server",
+    "run-backend": "go run cmd/server/main.go",
+    "build-frontend": "cd web && npm run build",
+    "serve-frontend": "cd web && npm run serve"
+  },
+  "forbidden": {
+    "go": [
+      "fmt.Printf",
+      "panic(",
+      "TODO(",
+      "FIXME("
+    ],
+    "javascript": [
+      "console.log(",
+      "document.querySelector",
+      "document.getElementById"
+    ]
+  }
+}

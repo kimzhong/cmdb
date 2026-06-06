@@ -1,0 +1,37 @@
+# Server配置
+server:
+  host: 0.0.0.0
+  port: 8081
+
+# MongoDB配置
+mongodb:
+  host: localhost
+  port: 27017
+  database: cmdb
+  username: ""
+  password: ""
+
+# LDAP/AD配置
+ldap:
+  enabled: false
+  host: ""
+  port: 389
+  base_dn: ""
+  user_dn: ""
+  password: ""
+  use_ssl: false
+  # AD域特殊配置
+  ad:
+    enabled: false
+    domain: ""
+    base_dn: ""
+
+# JWT配置
+jwt:
+  secret: "cmdb-secret-key-change-in-production"
+  expire: 24h
+
+# 日志配置
+log:
+  level: info
+  file: logs/cmdb.log
