@@ -1,0 +1,44 @@
+# ============ 构建产物 ============
+# Go 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Vue / Node 构建产物
+web/dist/
+web/node_modules/
+web/cmdb_frontend_e2e.js   # 调试用临时副本（tests/ 已有正式版）
+
+# ============ 日志与运行时 ============
+*.log
+backend_new.log
+logs/
+
+# ============ 临时文件与缓存 ============
+# 测试输出
+coverage/
+.nyc_output/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS 临时
+tmp/
+.tmp/
+
+# MongoDB 数据/日志（如果本地开发时落在仓库内）
+mongodb-data/
+mongodb-logs/
+
+# 截图 / 调试产物（playwright 截图保留在系统 Temp，不入仓）
+# 但 docs/screenshots/ 是文档用，正式入仓
