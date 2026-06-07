@@ -5,7 +5,9 @@ import (
 	"crypto/des"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"cmdb/config"
@@ -85,6 +87,7 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/resources/:id", getResource)
 		auth.PUT("/resources/:id", updateResource)
 		auth.DELETE("/resources/:id", deleteResource)
+		auth.POST("/resources/batch-delete", batchDeleteResources)
 
 		// 资源关系
 		auth.POST("/resources/:id/relations", createResourceRelation)
@@ -986,6 +989,55 @@ func deleteResource(c *gin.Context) {
 	c.JSON(200, gin.H{"code": 200, "message": "success"})
 }
 
+func batchDeleteResources(c *gin.Context) {
+	var req struct {
+		IDs []string `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "Invalid request"})
+		return
+	}
+
+	collection := database.GetCollection("resources")
+	var (
+		oids       []primitive.ObjectID
+		invalidIDs []string
+	)
+	for _, id := range req.IDs {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			invalidIDs = append(invalidIDs, id)
+			continue
+		}
+		oids = append(oids, oid)
+	}
+
+	// 全部 ID 都非法时直接拒绝，避免静默"成功"假象
+	if len(oids) == 0 {
+		c.JSON(400, gin.H{
+			"code":    400,
+			"message": "No valid IDs",
+			"data":    gin.H{"invalid_ids": invalidIDs},
+		})
+		return
+	}
+
+	result, err := collection.DeleteMany(c.Request.Context(), bson.M{"_id": bson.M{"$in": oids}})
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"code":    200,
+		"message": "success",
+		"data": gin.H{
+			"deleted":     result.DeletedCount,
+			"invalid_ids": invalidIDs,
+		},
+	})
+}
+
 // 资源关系
 func createResourceRelation(c *gin.Context) {
 	id := c.Param("id")
@@ -1205,74 +1257,56 @@ func globalSearch(c *gin.Context) {
 		return
 	}
 
-	// 获取所有模型
-	modelCollection := database.GetCollection("models")
-	modelsCursor, _ := modelCollection.Find(c.Request.Context(), bson.M{})
-	defer modelsCursor.Close(c.Request.Context())
+	// 安全：限制 keyword 长度 + 转义正则元字符，避免 ReDoS 与意外的全表正则扫描
+	const maxKeywordLen = 64
+	if len(keyword) > maxKeywordLen {
+		c.JSON(400, gin.H{"code": 400, "message": "keyword too long (max 64)"})
+		return
+	}
+	safeKeyword := regexp.QuoteMeta(keyword)
 
-	var allModels []models.Model
-	modelsCursor.All(c.Request.Context(), &allModels)
-
-	var results []map[string]interface{}
 	resourceCollection := database.GetCollection("resources")
 
-	// 先获取每个模型的字段列表，然后构建搜索查询
-	for _, model := range allModels {
-		// 获取模型的字段分组
-		fieldGroupCollection := database.GetCollection("field_groups")
-		groupCursor, _ := fieldGroupCollection.Find(c.Request.Context(), bson.M{"model_id": model.ID})
-		var groups []models.FieldGroup
-		groupCursor.All(c.Request.Context(), &groups)
-		groupCursor.Close(c.Request.Context())
+	// 先搜索model_identify
+	filter := bson.M{
+		"model_identify": bson.M{"$regex": safeKeyword, "$options": "i"},
+	}
 
-		fieldCollection := database.GetCollection("fields")
+	cursor, _ := resourceCollection.Find(c.Request.Context(), filter, options.Find().SetLimit(50))
+	defer cursor.Close(c.Request.Context())
 
-		var orConditions []bson.M
-		// 如果有字段分组，搜索这些分组下的字段
-		if len(groups) > 0 {
-			var groupIDs []primitive.ObjectID
-			for _, g := range groups {
-				groupIDs = append(groupIDs, g.ID)
-			}
+	var resources []models.Resource
+	cursor.All(c.Request.Context(), &resources)
 
-			fieldCursor, _ := fieldCollection.Find(c.Request.Context(), bson.M{"field_group_id": bson.M{"$in": groupIDs}})
-			var fields []models.Field
-			fieldCursor.All(c.Request.Context(), &fields)
-			fieldCursor.Close(c.Request.Context())
+	// 如果没找到，搜索所有资源并手动匹配data字段
+	if len(resources) == 0 {
+		allCursor, _ := resourceCollection.Find(c.Request.Context(), bson.M{}, options.Find().SetLimit(100))
+		var allResources []models.Resource
+		allCursor.All(c.Request.Context(), &allResources)
+		allCursor.Close(c.Request.Context())
 
-			for _, f := range fields {
-				orConditions = append(orConditions, bson.M{
-					"data." + f.Identify: bson.M{"$regex": keyword, "$options": "i"},
-				})
+		for _, r := range allResources {
+			dataStr := fmt.Sprintf("%v", r.Data)
+			if strings.Contains(strings.ToLower(dataStr), strings.ToLower(keyword)) {
+				resources = append(resources, r)
 			}
 		}
+	}
 
-		// 如果没有字段或没有构建出条件，使用通用的 data 字段搜索
-		if len(orConditions) == 0 {
-			orConditions = append(orConditions, bson.M{
-				"data": bson.M{"$regex": keyword, "$options": "i"},
-			})
-		}
+	// 获取模型信息
+	modelCollection := database.GetCollection("models")
+	var results []map[string]interface{}
+	for _, r := range resources {
+		var model models.Model
+		modelCollection.FindOne(c.Request.Context(), bson.M{"_id": r.ModelID}).Decode(&model)
 
-		filter := bson.M{
-			"model_id": model.ID,
-			"$or":      orConditions,
-		}
-
-		cursor, _ := resourceCollection.Find(c.Request.Context(), filter, options.Find().SetLimit(10))
-		var resources []models.Resource
-		cursor.All(c.Request.Context(), &resources)
-		cursor.Close(c.Request.Context())
-
-		for _, r := range resources {
-			results = append(results, map[string]interface{}{
-				"id":              r.ID.Hex(),
-				"model_id":       r.ModelID.Hex(),
-				"model_name":     model.Name,
-				"model_identify": model.Identify,
-				"data":           r.Data,
-			})
-		}
+		results = append(results, map[string]interface{}{
+			"id":              r.ID.Hex(),
+			"model_id":       r.ModelID.Hex(),
+			"model_name":     model.Name,
+			"model_identify": r.ModelIdentify,
+			"data":           r.Data,
+		})
 	}
 
 	c.JSON(200, gin.H{"code": 200, "data": results})
@@ -1381,13 +1415,26 @@ func listAllTagValues(c *gin.Context) {
 func createTagValue(c *gin.Context) {
 	var req models.TagValue
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"code": 400, "message": "Invalid request"})
+		c.JSON(400, gin.H{"code": 400, "message": "Invalid request: " + err.Error()})
 		return
 	}
 
+	req.CreatedAt = time.Now()
+	req.UpdatedAt = time.Now()
+
 	collection := database.GetCollection("tag_values")
-	result, _ := collection.InsertOne(c.Request.Context(), &req)
-	req.ID = result.InsertedID.(primitive.ObjectID)
+	result, err := collection.InsertOne(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "Insert failed: " + err.Error()})
+		return
+	}
+
+	if result != nil {
+		oid, ok := result.InsertedID.(primitive.ObjectID)
+		if ok {
+			req.ID = oid
+		}
+	}
 
 	c.JSON(200, gin.H{"code": 200, "data": req})
 }
@@ -1830,13 +1877,17 @@ func bindAppResource(c *gin.Context) {
 
 	collection := database.GetCollection("applications")
 	now := time.Now()
-	_, err = collection.UpdateOne(c.Request.Context(), bson.M{"_id": appOid}, bson.M{
-		"$addToSet": bson.M{
-			"resources": bson.M{"$each": resourceOids},
-		},
-		"$set": bson.M{
+	// 用 pipeline-form + $ifNull 避免 resources 字段为 null 时 $addToSet 失败
+	_, err = collection.UpdateOne(c.Request.Context(), bson.M{"_id": appOid}, bson.A{
+		bson.M{"$set": bson.M{
+			"resources": bson.M{
+				"$setUnion": bson.A{
+					bson.M{"$ifNull": bson.A{"$resources", bson.A{}}},
+					resourceOids,
+				},
+			},
 			"modify_at": now,
-		},
+		}},
 	})
 	if err != nil {
 		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
@@ -1864,14 +1915,14 @@ func unbindAppResource(c *gin.Context) {
 
 	collection := database.GetCollection("applications")
 	now := time.Now()
-	_, err = collection.UpdateOne(c.Request.Context(), bson.M{"_id": appOid}, bson.M{
-		"$pull": bson.M{
-			"resources": resourceOid,
+	// 仅在 resources 存在且是数组时执行 $pull（避免 null 字段报 Plan executor error）
+	_, err = collection.UpdateOne(c.Request.Context(),
+		bson.M{"_id": appOid, "resources": bson.M{"$type": "array"}},
+		bson.M{
+			"$pull": bson.M{"resources": resourceOid},
+			"$set":  bson.M{"modify_at": now},
 		},
-		"$set": bson.M{
-			"modify_at": now,
-		},
-	})
+	)
 	if err != nil {
 		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
 		return

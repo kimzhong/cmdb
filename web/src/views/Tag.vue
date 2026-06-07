@@ -1,5 +1,35 @@
 <template>
   <div class="tag-page">
+    <!-- 标签搜索 -->
+    <a-card title="标签搜索" size="small" style="margin-bottom: 16px">
+      <a-space>
+        <a-select
+          v-model:value="searchForm.tagKeyId"
+          placeholder="选择标签键"
+          style="width: 150px"
+          :loading="tagKeysLoading"
+          @change="loadTagValuesForSearch"
+        >
+          <a-select-option v-for="k in tagKeys" :key="k.id" :value="k.id">
+            {{ k.tag_name }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="searchForm.tagValueId"
+          placeholder="选择标签值"
+          style="width: 150px"
+          :disabled="!searchForm.tagKeyId"
+        >
+          <a-select-option v-for="v in tagValuesForSearch" :key="v.id" :value="v.id">
+            {{ v.tag_value_name }}
+          </a-select-option>
+        </a-select>
+        <a-button type="primary" @click="handleTagSearch" :disabled="!searchForm.tagValueId">
+          搜索
+        </a-button>
+      </a-space>
+    </a-card>
+
     <a-card title="标签管理">
       <template #extra>
         <a-button type="primary" @click="showKeyModal">
@@ -25,6 +55,26 @@
                 删除
               </a-button>
             </a-space>
+          </template>
+        </template>
+      </a-table>
+    </a-card>
+
+    <!-- 搜索结果 -->
+    <a-card title="搜索结果" size="small" style="margin-top: 16px" v-if="searchResults.length > 0">
+      <a-table
+        :columns="resultColumns"
+        :data-source="searchResults"
+        :loading="searchLoading"
+        :pagination="false"
+        row-key="id"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'model_identify'">
+            {{ record.model_identify }}
+          </template>
+          <template v-else-if="column.key === 'data'">
+            {{ JSON.stringify(record.data || {}).substring(0, 50) }}...
           </template>
         </template>
       </a-table>
@@ -164,6 +214,37 @@ export default defineComponent({
       tagKeyId: ''
     })
 
+    // 搜索表单
+    const searchForm = reactive({ tagKeyId: '', tagValueId: '' })
+    const tagValuesForSearch = ref([])
+    const tagKeysLoading = ref(false)
+    const searchResults = ref([])
+    const searchLoading = ref(false)
+
+    const loadTagValuesForSearch = async () => {
+      searchForm.tagValueId = ''
+      tagValuesForSearch.value = []
+      if (!searchForm.tagKeyId) { return }
+      try {
+        const res = await api.getTagValues(searchForm.tagKeyId)
+        tagValuesForSearch.value = (res.data || []).map(v => ({
+          id: v.id,
+          tag_value_name: v.tag_value_name
+        }))
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    const handleTagSearch = async () => {
+      if (!searchForm.tagValueId) return
+      searchLoading.value = true
+      try {
+        const res = await api.searchByTag(searchForm.tagKeyId, searchForm.tagValueId)
+        searchResults.value = res.data || []
+      } finally { searchLoading.value = false }
+    }
+
     const valueEditing = ref(false)
 
     const bindForm = reactive({
@@ -172,10 +253,15 @@ export default defineComponent({
     })
 
     const tagKeyColumns = [
-      { title: '标签键名称', dataIndex: 'name', key: 'name' },
-      { title: '标签键标识', dataIndex: 'identify', key: 'identify' },
+      { title: '标签键名称', dataIndex: 'tag_name', key: 'tag_name' },
+      { title: '标签键标识', dataIndex: 'tag_identify', key: 'tag_identify' },
       { title: '描述', dataIndex: 'description', key: 'description' },
       { title: '操作', key: 'action', width: 200 }
+    ]
+
+    const resultColumns = [
+      { title: '模型', dataIndex: 'model_identify', key: 'model_identify', width: 120 },
+      { title: '数据', key: 'data' }
     ]
 
     const tagValueColumns = [
@@ -190,16 +276,19 @@ export default defineComponent({
     ]
 
     const loadTagKeys = async () => {
+      tagKeysLoading.value = true
       try {
         const res = await api.getTagKeys()
         tagKeys.value = (res.data || []).map(k => ({
           id: k.id,
-          name: k.tag_name,
-          identify: k.tag_identify,
+          tag_name: k.tag_name || k.name,
+          tag_identify: k.tag_identify || k.identify,
           description: k.description
         }))
       } catch (error) {
         console.error(error)
+      } finally {
+        tagKeysLoading.value = false
       }
     }
 
@@ -264,8 +353,9 @@ export default defineComponent({
     const editTagKey = (record) => {
       keyEditing.value = true
       keyForm.id = record.id
-      keyForm.name = record.name
-      keyForm.identify = record.identify
+      // 后端 TagKey 模型序列化字段为 tag_name / tag_identify（与数据库 bson 一致）
+      keyForm.name = record.tag_name || record.name
+      keyForm.identify = record.tag_identify || record.identify
       keyForm.description = record.description
       keyModalVisible.value = true
     }
@@ -375,10 +465,12 @@ export default defineComponent({
 
     return {
       tagKeys,
+      tagKeysLoading,
       tagValues,
       models,
       bindResourcesList,
       tagKeyColumns,
+      resultColumns,
       tagValueColumns,
       resourceColumns,
       keyModalVisible,
@@ -387,6 +479,10 @@ export default defineComponent({
       valueModalVisible,
       valueEditing,
       bindModalVisible,
+      searchForm,
+      searchResults,
+      loadTagValuesForSearch,
+      handleTagSearch,
       keyForm,
       valueForm,
       bindForm,

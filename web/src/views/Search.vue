@@ -41,12 +41,14 @@
 
 <script>
 import { defineComponent, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import api from '../api'
 
 export default defineComponent({
   name: 'Search',
   setup() {
+    const router = useRouter()
     const keyword = ref('')
     const results = ref([])
     const loading = ref(false)
@@ -72,7 +74,10 @@ export default defineComponent({
     }
 
     const viewDetail = (item) => {
-      // 跳转到资源详情页
+      router.push({
+        path: '/resource',
+        query: { id: item.id, modelId: item.model_id }
+      })
     }
 
     return {

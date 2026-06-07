@@ -23,6 +23,9 @@
               <a-button type="primary" @click="showResourceModal" :disabled="!selectedModel">
                 <PlusOutlined /> 新建资源
               </a-button>
+              <a-button danger :disabled="selectedRows.length === 0" @click="handleBatchDelete">
+                批量删除
+              </a-button>
             </a-space>
           </template>
           <a-table
@@ -30,6 +33,7 @@
             :data-source="resources"
             :pagination="pagination"
             :loading="loading"
+            :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectionChange }"
             row-key="id"
             @change="handleTableChange"
           >
@@ -228,6 +232,7 @@
 
 <script>
 import { defineComponent, ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { PlusOutlined, AppstoreOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import api from '../api'
@@ -266,6 +271,30 @@ export default defineComponent({
       pageSize: 10,
       total: 0
     })
+
+    // 批量选择
+    const selectedRowKeys = ref([])
+    const selectedRows = ref([])
+
+    const onSelectionChange = (keys, rows) => {
+      selectedRowKeys.value = keys
+      selectedRows.value = rows
+    }
+
+    const handleBatchDelete = async () => {
+      if (selectedRows.value.length === 0) return
+      try {
+        const ids = selectedRows.value.map(r => r.id)
+        await api.batchDeleteResources(ids)
+        message.success('删除成功')
+        selectedRowKeys.value = []
+        selectedRows.value = []
+        loadResources()
+      } catch (error) {
+        console.error(error)
+        message.error('删除失败')
+      }
+    }
 
     const resourceColumns = [
       { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
@@ -514,8 +543,20 @@ export default defineComponent({
       }
     }
 
-    onMounted(() => {
-      loadModelTree()
+    // 必须在 setup 同步执行获取 route（Vue Router 规则）
+    const route = useRoute()
+
+    onMounted(async () => {
+      await loadModelTree()
+      // 处理从 Search.vue 跳转过来的 query（id + modelId），自动打开资源详情
+      const { id, modelId } = route.query
+      if (id && modelId) {
+        const mid = Array.isArray(modelId) ? modelId[0] : modelId
+        const rid = Array.isArray(id) ? id[0] : id
+        // 兜底：构造一个最小 model 对象供详情加载（resources 是资源列表，modelId 在此阶段未必已加载）
+        selectedModel.value = { id: mid, identify: '', name: '' }
+        await viewResource({ id: rid })
+      }
     })
 
     return {
@@ -529,6 +570,10 @@ export default defineComponent({
       relationColumns,
       resourceForm,
       pagination,
+      selectedRowKeys,
+      selectedRows,
+      onSelectionChange,
+      handleBatchDelete,
       resourceModalVisible,
       resourceEditing,
       resourceDetailVisible,

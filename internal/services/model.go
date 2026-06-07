@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"cmdb/database"
@@ -476,14 +477,5 @@ func (s *FieldService) DeleteByModel(modelID string) error {
 	return err
 }
 
-func errors.New(msg string) error {
-	return &customError{msg: msg}
-}
-
-type customError struct {
-	msg string
-}
-
-func (e *customError) Error() string {
-	return e.msg
-}
+// 注：原文件末尾曾有 `func errors.New(...)` 的非合法 Go 语法（与标准库命名冲突）
+// 已在 code review 阶段删除。如需自定义错误，请使用 `var ErrXxx = errors.New(...)` 模式。

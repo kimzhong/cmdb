@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"time"
 
 	"cmdb/database"
@@ -144,14 +144,14 @@ func (s *ResourceService) SearchByKeyword(keyword string) ([]map[string]interfac
 
 	// 获取所有模型
 	modelService := NewModelService()
-	models, err := modelService.List()
+	allModels, err := modelService.List()
 	if err != nil {
 		return nil, err
 	}
 
 	var results []map[string]interface{}
 
-	for _, model := range models {
+	for _, model := range allModels {
 		filter := bson.M{
 			"model_id": model.ID,
 			"$or": []bson.M{
@@ -173,11 +173,11 @@ func (s *ResourceService) SearchByKeyword(keyword string) ([]map[string]interfac
 
 		for _, r := range resources {
 			results = append(results, map[string]interface{}{
-				"id":            r.ID.Hex(),
-				"model_id":      r.ModelID.Hex(),
-				"model_name":    model.Name,
+				"id":             r.ID.Hex(),
+				"model_id":       r.ModelID.Hex(),
+				"model_name":     model.Name,
 				"model_identify": model.Identify,
-				"data":          r.Data,
+				"data":           r.Data,
 			})
 		}
 	}
@@ -435,32 +435,68 @@ func (s *TagService) ListTagValuesByKey(keyID string) ([]*models.TagValue, error
 }
 
 func (s *TagService) BindResource(tagValueID string, resourceIDs []primitive.ObjectID) error {
-	objectID, err := primitive.ObjectIDFromHex(tagValueID)
+	tagValueOID, err := primitive.ObjectIDFromHex(tagValueID)
 	if err != nil {
 		return err
 	}
 
-	update := bson.M{
-		"$addToSet": bson.M{"resources": bson.M{"$each": resourceIDs}},
-		"$set":      bson.M{"modify_at": time.Now()},
+	// 1) 在 tag_values.resources 上加入（用 $ifNull 防止 null 字段）
+	update := bson.A{
+		bson.M{"$set": bson.M{
+			"resources": bson.M{
+				"$setUnion": bson.A{
+					bson.M{"$ifNull": bson.A{"$resources", bson.A{}}},
+					resourceIDs,
+				},
+			},
+			"modify_at": time.Now(),
+		}},
+	}
+	if _, err = s.valueCollection.UpdateOne(context.Background(), bson.M{"_id": tagValueOID}, update); err != nil {
+		return err
 	}
 
-	_, err = s.valueCollection.UpdateOne(context.Background(), bson.M{"_id": objectID}, update)
+	// 2) 同步把 tagValueOID 加入每个资源的 tags
+	resourceCollection := database.GetCollection("resources")
+	_, err = resourceCollection.UpdateMany(context.Background(),
+		bson.M{"_id": bson.M{"$in": resourceIDs}},
+		bson.A{bson.M{"$set": bson.M{
+			"tags": bson.M{
+				"$setUnion": bson.A{
+					bson.M{"$ifNull": bson.A{"$tags", bson.A{}}},
+					bson.A{tagValueOID},
+				},
+			},
+			"modify_at": time.Now(),
+		}}},
+	)
 	return err
 }
 
 func (s *TagService) UnbindResource(tagValueID string, resourceIDs []primitive.ObjectID) error {
-	objectID, err := primitive.ObjectIDFromHex(tagValueID)
+	tagValueOID, err := primitive.ObjectIDFromHex(tagValueID)
 	if err != nil {
 		return err
 	}
 
+	// 1) 从 tag_values.resources 移除
 	update := bson.M{
 		"$pull": bson.M{"resources": bson.M{"$in": resourceIDs}},
-		"$set":   bson.M{"modify_at": time.Now()},
+		"$set":  bson.M{"modify_at": time.Now()},
+	}
+	if _, err = s.valueCollection.UpdateOne(context.Background(), bson.M{"_id": tagValueOID}, update); err != nil {
+		return err
 	}
 
-	_, err = s.valueCollection.UpdateOne(context.Background(), bson.M{"_id": objectID}, update)
+	// 2) 同步从每个资源的 tags 移除该 tag value
+	resourceCollection := database.GetCollection("resources")
+	_, err = resourceCollection.UpdateMany(context.Background(),
+		bson.M{"_id": bson.M{"$in": resourceIDs}},
+		bson.M{
+			"$pull": bson.M{"tags": tagValueOID},
+			"$set":  bson.M{"modify_at": time.Now()},
+		},
+	)
 	return err
 }
 

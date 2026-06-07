@@ -7,6 +7,9 @@ const request = axios.create({
   timeout: 10000
 })
 
+// 暴露给单测使用（attach axios-mock-adapter）
+export { request }
+
 // 请求拦截器
 request.interceptors.request.use(
   config => {
@@ -128,6 +131,9 @@ export default {
   deleteResource(id) {
     return request.delete(`/resources/${id}`)
   },
+  batchDeleteResources(ids) {
+    return request.post('/resources/batch-delete', { ids })
+  },
   // 资源关系
   getResourceRelations(id) {
     return request.get(`/resources/${id}/relations`)
@@ -171,6 +177,9 @@ export default {
   },
   deleteTagValue(id) {
     return request.delete(`/tags/values/${id}`)
+  },
+  searchByTag(tagKeyId, tagValueId) {
+    return request.get('/tags/search', { params: { tagKeyId, tagValueId } })
   },
   bindResource(tagValueId, resourceIds) {
     return request.post(`/tags/values/${tagValueId}/bind`, { resource_ids: resourceIds })

@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -78,14 +79,14 @@ func (s *UserService) Delete(id string) error {
 }
 
 func (s *UserService) List(page, pageSize int) ([]*models.User, int64, error) {
-	skip := (page - 1) * pageSize
+	skip := int64((page - 1) * pageSize)
 
 	total, err := s.collection.CountDocuments(context.Background(), bson.M{})
 	if err != nil {
 		return nil, 0, err
 	}
 
-	cursor, err := s.collection.Find(context.Background(), bson.M{}, mongoopts(pageSize, skip))
+	cursor, err := s.collection.Find(context.Background(), bson.M{}, mongoopts(int64(pageSize), skip))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -160,8 +161,8 @@ func (s *UserService) CreateDefaultAdmin() error {
 	return nil
 }
 
-func mongoopts(limit, skip int64) *mongo.FindOptions {
-	return &mongo.FindOptions{
+func mongoopts(limit, skip int64) *options.FindOptions {
+	return &options.FindOptions{
 		Limit: &limit,
 		Skip:  &skip,
 		Sort:  bson.D{{Key: "create_at", Value: -1}},

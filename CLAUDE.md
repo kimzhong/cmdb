@@ -217,6 +217,91 @@ ldap:
 - 用户名: admin
 - 密码: admin123
 
+**首次启动需手动在 MongoDB 创建 admin 用户**（router 未实现 CreateDefaultAdmin）：
+
+```bash
+python -c "
+import pymongo,bcrypt
+from datetime import datetime,timezone
+db=pymongo.MongoClient('mongodb://localhost:27017/')['cmdb']
+db.users.delete_many({})
+db.users.insert_one({
+    'username':'admin',
+    'password':bcrypt.hashpw(b'admin123',bcrypt.gensalt()).decode(),
+    'role':'admin','status':1,'source':'local',
+    'create_at':datetime.now(timezone.utc),
+    'modify_at':datetime.now(timezone.utc)
+})"
+```
+
+## 测试
+
+### 后端
+
+| 类型 | 命令 | 说明 |
+|------|------|------|
+| 单元测试 | `go test ./...` | 15 测试，无外部依赖 |
+| 集成测试 | `go test -tags=integration ./...` | 4 测试，需 MongoDB；不可达时自动 skip |
+
+测试文件位置：
+- `internal/middleware/{auth,cors}_test.go` — JWT + CORS
+- `internal/routers/helpers_test.go` — 加密/校验/参数解析
+- `internal/services/integration_test.go` — 业务层（ModelService 自动建分组/字段、Tag 双向绑定等）
+
+### 前端
+
+| 命令 | 说明 |
+|------|------|
+| `cd web && npm test` | 跑 31 个 Vitest 测试 |
+| `cd web && npm run test:watch` | watch 模式 |
+| `cd web && npm run build` | 生产构建 |
+
+测试文件位置（`web/src/**/__tests__/*.spec.js`）：
+- `api/__tests__/interceptors.spec.js` — token 注入、401 跳转
+- `store/__tests__/store.spec.js` — Vuex mutations + actions
+- `router/__tests__/guard.spec.js` — 鉴权守卫
+- `views/__tests__/Search.spec.js` — 搜索 + 跳转（review 修复）
+- `views/__tests__/Tag.spec.js` — loadTagKeys 字段映射（review 修复）
+- `views/__tests__/Resource.spec.js` — mount 稳定性 + 路由 query 消费
+
+### E2E CRUD（HTTP API 全页面）
+
+`C:\Users\kim\AppData\Local\Temp\cmdb_e2e_test.sh` — 覆盖 8 个页面、86 个 API 用例。前置：MongoDB + 后端 + 前端 全部运行；脚本会先清库再跑。
+
+```bash
+bash /c/Users/kim/AppData/Local/Temp/cmdb_e2e_test.sh
+```
+
+## 已知 Bug 修复记录（2026-06）
+
+### code-review + simplify 阶段（review 报告）
+
+| 文件 | 严重度 | 修复 |
+|------|--------|------|
+| `internal/services/model.go` | CRITICAL | 删除非法 `func errors.New(...)` 语法 + 补 errors import |
+| `internal/services/user.go` | HIGH | `mongo.FindOptions` → `options.FindOptions` + 修 int64 转换 |
+| `internal/services/resource.go` | HIGH | 修 `models` 变量遮蔽包名 + 补 errors import |
+| `internal/middleware/cors.go` | MEDIUM | 移除硬设的 Content-Type 头（污染 204 预检与非 JSON 端点） |
+| `internal/routers/router.go` globalSearch | HIGH | `regexp.QuoteMeta` 转义 + keyword 长度上限 64 字节（防 ReDoS） |
+| `internal/routers/router.go` batchDeleteResources | MEDIUM | 收集 invalid_ids + 全非法时返回 400 |
+| `web/src/views/Tag.vue` | CRITICAL | `tagKeyColumns` dataIndex 改 `tag_name`/`tag_identify` |
+| `web/src/views/Resource.vue` | CRITICAL | onMounted 读 `route.query` 自动打开 Search.vue 跳来的详情 |
+
+### 集成测试驱动发现
+
+| 文件 | 症状 | 修复 |
+|------|------|------|
+| `internal/services/resource.go` BindResource | `$addToSet` 在 null 字段崩溃 | pipeline + `$ifNull` 原子处理 + 双向同步 resources.tags |
+| `internal/routers/router.go` bindAppResource | `$addToSet` 在 null 字段崩溃 | 同上 pipeline 模式 |
+| `internal/routers/router.go` unbindAppResource | `$pull` 在 null 字段崩溃 | 加 `$type:array` 过滤 |
+
+### 用户反馈修复
+
+| 文件 | 症状 | 修复 |
+|------|------|------|
+| `web/vue.config.js` | 直接访问 /resource 等深层路径 404 | 加 `historyApiFallback: true` |
+| `web/src/views/Resource.vue` | mount 时抛 "Cannot read properties of undefined (reading 'query')" | `useRoute()` 必须在 setup 顶层同步调用，不能在 onMounted 中 |
+
 ## Skill 使用
 
 ### 指定后端开发
