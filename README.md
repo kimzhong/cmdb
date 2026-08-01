@@ -202,6 +202,58 @@ node scripts/record-demo.cjs
 | 中文乱码 | 检查 PowerShell 是否用 UTF-8 发送（前端浏览器不会有问题） |
 | Vite 报 `does not provide an export named` | `pnpm --filter @cmdb/shared build` 重构建 shared |
 
+### 10.1 Windows 专属坑
+
+#### 10.1.1 PowerShell + OpenSSH
+
+- **PowerShell 默认编码是 GBK**：`Set-Content -Encoding utf8` 会写 **UTF-8 with BOM**。OpenSSH 的 `ssh-keygen -y` 看到 BOM 直接 `invalid format`。
+  - 修：用 `[System.IO.File]::WriteAllBytes` 写文件，跳过 BOM
+- **SSH key 必须多行 PEM**：单行 base64 也不行，需要每 70 字符换行 + 文件以换行结尾
+- **PEM 文件头**：`-----BEGIN RSA PRIVATE KEY-----` 才是私钥；`ssh-rsa AAAA...` 是公钥，只能加到 Gitee 的 Deploy Key，不能用于 push
+- **`ssh-keygen -p` 也会报 invalid format**：通常就是上面两个原因
+
+#### 10.1.2 git + SSH
+
+- **Windows 上 git 不一定读 `~/.ssh/config`**：建议显式设 `core.sshCommand` 或 `GIT_SSH_COMMAND`：
+  ```bash
+  git config --global core.sshCommand "ssh -i C:\Users\kim\.ssh\cmdb_gitee -o IdentitiesOnly=yes"
+  ```
+- **全局 `url.<...>.insteadof` 会劫持你的 remote URL**（比如 `https://ghproxy.com/...insteadof https://github.com/` 会把所有 github 推送走 ghproxy —— 只能 read 不能 push）。检查：
+  ```bash
+  git config --global --get-regexp 'url\.'
+  ```
+  需要 push 时用 `git@github.com:...` (SSH) 绕过
+- **`.ssh/config` 里的 `IdentityFile` 路径**必须是 OpenSSH 能解析的格式（`C:\Users\...` 在 PowerShell 里加引号；不要用 `~`）
+- **Gitee 推送用 Deploy Key** 而不是账号密码：Deploy Key 必须在 Gitee 网站上勾"启用" + "写权限"才有效
+
+#### 10.1.3 PowerShell 命令行参数
+
+- **`rm -rf` 在 PowerShell 不存在**：用 `Remove-Item -Recurse -Force` 或 `mavis-trash`（推荐，回收站可恢复）
+- **`Set-Content -Encoding utf8` 写 BOM**：用 `[System.IO.File]::WriteAllBytes` 跳过 BOM
+- **`$variable` 在双引号字符串里会展开，在单引号里是字面值**：
+  ```powershell
+  $env:FOO = 'bar'
+  Write-Output "FOO=$env:FOO"   # FOO=bar
+  Write-Output 'FOO=$env:FOO'   # FOO=$env:FOO
+  ```
+- **PowerShell 不支持 `&&`**：用 `;` 分隔
+- **`bash` 子命令会被安全规则拦截**：不要在 PowerShell 里用 `bash -c`；直接用 PowerShell 等价命令
+- **`Remove-Item` 删除文件路径会被安全规则要求走 `mavis-trash`**：避免 `Remove-Item`，统一用 `mavis-trash` 走回收站
+- **JSON 字符串中重复键**：`ConvertFrom-Json` 遇到大小写相同的键（如 `Cpu` + `cpu`）会报"duplicate keys"，别用 PowerShell 解析这种 body（用 `Select-String` 提取或 `jq` 之类）
+
+#### 10.1.4 Vite + Monorepo
+
+- **`@cmdb/shared` 在浏览器里报 `does not provide an export named X`**：Vite 走 ESM 解析 CJS dist 时识别不到 `exports.X = Y` 模式的 named export。
+  - 修：`vite.config.ts` 的 alias 改成指向 `src/index.ts`（让 Vite 直接处理 TS 源）而不是 `dist`
+- **Vite 报 `Failed to resolve import "dayjs"`**：`DatePicker` 隐式依赖 `dayjs`，需要 `pnpm --filter @cmdb/web add dayjs`
+- **`tsc` 改完代码后没生效**：`tsconfig.tsbuildinfo` 增量缓存过期。删 `apps/server/tsconfig.tsbuildinfo` 后重跑
+
+#### 10.1.5 Docker
+
+- **拉镜像卡在 IPv6**：`registry-1.docker.io` 解析到 IPv6 连不上。
+  - 修：重启 Docker Desktop（一般自动切回 IPv4）
+- **容器内访问宿主 localhost**：用 `host.docker.internal`（Windows / Mac 通用）
+
 ## 11. License
 
 MIT
