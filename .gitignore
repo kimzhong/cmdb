@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Prisma / Mongo local
+*.db
+*.sqlite
+
+# Nest
+.nest/
+
+# Vite
+.vite/
+
+# Demo / artifacts
+demo/
+playwright-report/
+test-results/
+
+# Sibling workspace (英语学习资料, 跟本项目无关)
+business english pod/
+

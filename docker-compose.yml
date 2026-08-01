@@ -1,0 +1,70 @@
+name: cmdb
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: cmdb-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: cmdb
+    volumes:
+      - mongo_data:/data/db
+      - ./docker/mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cmdb-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    container_name: cmdb-server
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      SERVER_PORT: 3030
+      SERVER_GLOBAL_PREFIX: api
+      SERVER_CORS_ORIGIN: '*'
+      MONGODB_URI: mongodb://mongo:27017/cmdb
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SWAGGER_ENABLED: 'true'
+      SWAGGER_PATH: docs
+      CMDB_FIELD_ENC_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      CMDB_JWT_SECRET: change-me-in-production
+    ports:
+      - '3030:3030'
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: cmdb-web
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - '8080:80'
+
+volumes:
+  mongo_data:
+  redis_data:

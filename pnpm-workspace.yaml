@@ -1,0 +1,12 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+allowBuilds:
+  puppeteer: set this to true or false
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - 'esbuild'
+  - '@scarf/scarf'
+  - 'puppeteer'
