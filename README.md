@@ -163,6 +163,25 @@ pnpm --filter @cmdb/web preview       # 预览生产构建
 | 8 | 审计 | 所有写操作自动记 audit_logs（含 username/ip/耗时） |
 | 9 | 监控 | `/api/metrics` Prometheus 端点 + HTTP histogram + 业务计数器 |
 
+### 6.1 功能截图
+
+> 以下截图来自最新一次本地构建（`node scripts/capture-screenshots.cjs`），均使用 admin/admin 登录后的真实界面。
+> 共 11 张，覆盖所有业务模块。
+
+| 页面 | 截图 |
+|---|---|
+| 登录 | ![登录](docs/screenshots/01-login.png) |
+| 元模型 — 分类 | ![元模型-分类](docs/screenshots/02-categories.png) |
+| 元模型 — 分组 | ![元模型-分组](docs/screenshots/03-groups.png) |
+| 元模型 — 模型（字段定义） | ![元模型-模型](docs/screenshots/04-models.png) |
+| 资源仓库（动态表单） | ![资源仓库](docs/screenshots/05-resources.png) |
+| 标签管理 | ![标签管理](docs/screenshots/06-tags.png) |
+| 应用视图 | ![应用视图](docs/screenshots/07-apps.png) |
+| 全局搜索 | ![全局搜索](docs/screenshots/08-search.png) |
+| 定时任务 | ![定时任务](docs/screenshots/09-sync.png) |
+| 审计日志 | ![审计日志](docs/screenshots/10-audit.png) |
+| 健康检查 | ![健康检查](docs/screenshots/11-health.png) |
+
 ## 7. 业务规则（来自 readme §7.2 删除约束）
 
 | 操作 | 前置条件 |
