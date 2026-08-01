@@ -54,3 +54,6 @@ test-results/
 # Sibling workspace (英语学习资料, 跟本项目无关)
 business english pod/
 
+# SSH keys (绝不入库)
+.ssh/
+
