@@ -29,14 +29,23 @@ async function main() {
   const page = await context.newPage();
 
   console.log('▶ Login');
+  // 1. 打开登录页（先停几秒录一下）
   await page.goto(`${BASE}/login`, { waitUntil: 'load' });
-  await sleep(3000);
-  // 注入 token + user 到 localStorage（绕过点击登录）
-  await page.evaluate(() => {
-    localStorage.setItem('cmdb.token', 'demo-token');
-  });
-  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await sleep(3000);
+  await sleep(2500);
+  // 截一张登录页的图作为视觉证据
+  await page.screenshot({ path: path.join(path.dirname(OUTPUT), '_login-frame.png'), fullPage: false });
+  // 2. 等按钮可点
+  await page.waitForSelector('button.ant-btn.ant-btn-primary', { timeout: 10_000 });
+  // 3. 故意停 1s 让录屏捕捉到登录页静止状态
+  await sleep(1000);
+  // 4. 点登录
+  await page.click('button.ant-btn.ant-btn-primary');
+  // 5. 等跳到首页
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10_000 });
+  await page.waitForLoadState('networkidle');
+  // 6. 截登录后第一帧
+  await page.screenshot({ path: path.join(path.dirname(OUTPUT), '_home-frame.png'), fullPage: false });
+  await sleep(2500);
 
   const steps = [
     ['/meta-model/categories', 2500, '分类'],

@@ -35,10 +35,11 @@ http.interceptors.response.use(
 
     if (status === 401 && !error.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('cmdb.token');
-      // 用 hash 路由硬跳
-      window.location.hash = '#/login';
-      // 全量刷新以触发 router 拦截
-      setTimeout(() => window.location.reload(), 50);
+      // 用 history pushState 触发 react-router 拦截（避免硬刷导致状态丢失）
+      if (window.location.pathname !== '/login') {
+        window.history.pushState({}, '', '/login');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
     }
 
     return Promise.reject({

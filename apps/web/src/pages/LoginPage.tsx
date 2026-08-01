@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Card, Form, Input, Button, Typography, Alert, Space, Tag } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const { Title, Text } = Typography;
 
 export function LoginPage() {
   const setSession = useAuthStore((s) => s.setSession);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form] = Form.useForm<{ username: string; password: string }>();
@@ -18,8 +21,8 @@ export function LoginPage() {
     try {
       const { token, user } = await (await import('@/api/auth')).authApi.login(v.username, v.password);
       setSession(token, user);
-      window.location.hash = '#/';
-      setTimeout(() => window.location.reload(), 50);
+      const from = (location.state as { from?: string } | null)?.from ?? '/';
+      navigate(from, { replace: true });
     } catch (e) {
       setError((e as { message?: string }).message || '登录失败');
     } finally {
