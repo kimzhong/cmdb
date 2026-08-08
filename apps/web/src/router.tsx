@@ -13,6 +13,15 @@ import { AppsExplorer } from './pages/AppsExplorer';
 import { SyncPage } from './pages/SyncPage';
 import { AuditPage } from './pages/AuditPage';
 import { LoginPage } from './pages/LoginPage';
+import { RelationsPage } from './pages/RelationsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { TrashPage } from './pages/TrashPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { IpamPage } from './pages/IpamPage';
+import { DiscoveryPage } from './pages/DiscoveryPage';
+import { ModelTemplatesPage } from './pages/ModelTemplatesPage';
+import { BulkIoPage } from './pages/BulkIoPage';
+import { RoomsPage } from './pages/RoomsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -24,9 +33,10 @@ export const router = createBrowserRouter([
       </AuthGuard>
     ),
     children: [
-      { index: true, element: <Navigate to="/meta-model/categories" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'home', element: <Home /> },
       { path: 'health', element: <Health /> },
+      // v0.1
       { path: 'meta-model/categories', element: <MetaModelCategories /> },
       { path: 'meta-model/groups', element: <MetaModelGroups /> },
       { path: 'meta-model/models', element: <MetaModelModels /> },
@@ -36,6 +46,16 @@ export const router = createBrowserRouter([
       { path: 'apps', element: <AppsExplorer /> },
       { path: 'sync', element: <SyncPage /> },
       { path: 'audit', element: <AuditPage /> },
+      // v0.2
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'relations', element: <RelationsPage /> },
+      { path: 'approvals', element: <ApprovalsPage /> },
+      { path: 'trash', element: <TrashPage /> },
+      { path: 'ipam', element: <IpamPage /> },
+      { path: 'discovery', element: <DiscoveryPage /> },
+      { path: 'model-templates', element: <ModelTemplatesPage /> },
+      { path: 'bulk-io', element: <BulkIoPage /> },
+      { path: 'rooms', element: <RoomsPage /> },
     ],
   },
 ]);
