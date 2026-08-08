@@ -1,19 +1,19 @@
 /**
  * Permissions 限界上下文 (F10)
- *
- * 责任:
- *  - 细粒度权限定义 (permissions)
- *  - PolicyEvaluator 领域服务
- *  - PermissionsGuard 全局拦截
- *
- * 横切关注点:被所有 BC 的 Controller 拦截
  */
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Permission, PermissionSchema } from './infra/permission.schema';
+import { PermissionsService } from './application/permissions.service';
+import { PermissionsController } from './application/permissions.controller';
+import { PolicyEvaluator } from './domain/policy-evaluator';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    MongooseModule.forFeature([{ name: Permission.name, schema: PermissionSchema }]),
+  ],
+  controllers: [PermissionsController],
+  providers: [PermissionsService, PolicyEvaluator],
+  exports: [PermissionsService, PolicyEvaluator],
 })
 export class PermissionsModule {}

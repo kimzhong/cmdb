@@ -1,20 +1,13 @@
 /**
  * Reporting 限界上下文 (F11)
- *
- * 责任:
- *  - 资源/生命周期分布统计
- *  - 变化趋势
- *  - 审批待办统计
- *  - IPAM 使用率
- *  - 发现执行统计
- *  - 仪表盘快照缓存
  */
 import { Module } from '@nestjs/common';
+import { ReportingService } from './application/reporting.service';
+import { ReportingController } from './application/reporting.controller';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  controllers: [ReportingController],
+  providers: [ReportingService],
+  exports: [ReportingService],
 })
 export class ReportingModule {}

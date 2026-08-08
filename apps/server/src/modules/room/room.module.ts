@@ -1,18 +1,22 @@
 /**
  * Room 限界上下文 (F9)
- *
- * 责任:
- *  - 机房管理 (rooms)
- *  - 机柜管理 (cabinets)
- *  - U 位管理 (rack_units, 放置资源)
- *  - 2D 平面图渲染(前端)
  */
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Room, RoomSchema, Cabinet, CabinetSchema, RackUnit, RackUnitSchema } from './infra/room.schema';
+import { RoomService } from './application/room.service';
+import { RoomsController, CabinetsController } from './application/room.controller';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Room.name, schema: RoomSchema },
+      { name: Cabinet.name, schema: CabinetSchema },
+      { name: RackUnit.name, schema: RackUnitSchema },
+    ]),
+  ],
+  controllers: [RoomsController, CabinetsController],
+  providers: [RoomService],
+  exports: [RoomService],
 })
 export class RoomModule {}

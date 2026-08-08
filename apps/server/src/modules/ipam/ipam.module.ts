@@ -1,18 +1,21 @@
 /**
  * IPAM 限界上下文 (F8)
- *
- * 责任:
- *  - 子网管理 (ipam_subnets, CIDR 层级)
- *  - IP 地址管理 (ipam_addresses)
- *  - 分配/释放/冲突检测
- *  - 跨区域 Scope
  */
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Subnet, SubnetSchema, IpAddress, IpAddressSchema } from './infra/ipam.schema';
+import { IpamService } from './application/ipam.service';
+import { IpamController } from './application/ipam.controller';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Subnet.name, schema: SubnetSchema },
+      { name: IpAddress.name, schema: IpAddressSchema },
+    ]),
+  ],
+  controllers: [IpamController],
+  providers: [IpamService],
+  exports: [IpamService],
 })
 export class IpamModule {}

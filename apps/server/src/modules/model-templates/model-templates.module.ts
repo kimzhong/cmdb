@@ -1,17 +1,20 @@
 /**
  * Model-Templates 限界上下文 (F12)
- *
- * 责任:
- *  - 预置模型库 (model_templates)
- *  - 一键导入为用户模型
- *  - 10 个系统模板: Linux Server / MySQL / Redis / Nginx / etc.
  */
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ModelTemplate, ModelTemplateSchema } from './infra/model-template.schema';
+import { ModelTemplatesService } from './application/model-templates.service';
+import { ModelTemplatesController } from './application/model-templates.controller';
+import { ModelsModule } from '../meta-model/models/models.module';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    MongooseModule.forFeature([{ name: ModelTemplate.name, schema: ModelTemplateSchema }]),
+    ModelsModule,
+  ],
+  controllers: [ModelTemplatesController],
+  providers: [ModelTemplatesService],
+  exports: [ModelTemplatesService],
 })
 export class ModelTemplatesModule {}
