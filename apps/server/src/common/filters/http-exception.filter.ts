@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ErrorCode } from '@cmdb/shared/types/error-code';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -17,33 +18,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code: number = status;
+    let httpStatus: number = HttpStatus.INTERNAL_SERVER_ERROR;
+    let code: number = ErrorCode.INTERNAL_ERROR;
     let message: string | string[] = 'Internal server error';
-    let error = 'INTERNAL_SERVER_ERROR';
+    let error = 'INTERNAL_ERROR';
+    let data: any = undefined;
 
     if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      code = status;
+      httpStatus = exception.getStatus();
       const res = exception.getResponse();
       if (typeof res === 'string') {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
         const r = res as Record<string, unknown>;
+        if (typeof r.code === 'number') code = r.code as number;
         message = (r.message as string | string[]) ?? exception.message;
-        if (typeof r.code === 'string') {
-          error = r.code;
-        }
+        if (typeof r.error === 'string') error = r.error as string;
+        if ('data' in r) data = r.data;
       }
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(exception.stack);
     }
 
-    response.status(status).json({
+    response.status(httpStatus).json({
       code,
       error,
       message,
+      data,
       path: request.url,
       timestamp: new Date().toISOString(),
     });
