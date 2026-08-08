@@ -12,11 +12,17 @@
  *  - 接收 approval.approved 事件(自动执行)
  */
 import { Module } from '@nestjs/common';
+import { ModelsModule } from '../meta-model/models/models.module';
+import { ResourcesModule } from '../resources/resources.module';
+import { LifecycleService } from './domain/lifecycle.service';
+import { ResourcesLifecycleService } from './application/resources-lifecycle.service';
+import { LifecycleController } from './application/lifecycle.controller';
+import { TrashController } from './application/trash.controller';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [ModelsModule, ResourcesModule],
+  controllers: [LifecycleController, TrashController],
+  providers: [LifecycleService, ResourcesLifecycleService],
+  exports: [LifecycleService, ResourcesLifecycleService],
 })
 export class LifecycleModule {}

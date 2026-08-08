@@ -5,14 +5,17 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ModelsService } from '../meta-model/models/models.service';
 import { FieldType, ModelDef } from '../meta-model/models/schemas/model.schema';
 import { DynamicSchemaFactory } from './dynamic-schema.factory';
+import { LifecycleState } from '@cmdb/shared/types';
 
 interface ListParams {
   page?: number;
   pageSize?: number;
   keyword?: string;
+  includeTrash?: boolean; // v0.2: 是否包含已删除
 }
 
 @Injectable()
@@ -22,6 +25,7 @@ export class ResourcesService {
   constructor(
     private readonly modelsService: ModelsService,
     private readonly factory: DynamicSchemaFactory,
+    private readonly emitter: EventEmitter2,
   ) {}
 
   /** 资源列表（按 modelUid） */
@@ -36,6 +40,13 @@ export class ResourcesService {
       // 全文搜索：使用 $text
       filter.$text = { $search: params.keyword };
     }
+    // v0.2: 默认不返回已删除(回收站)
+    if (!params.includeTrash) {
+      filter.$and = [
+        { $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }] },
+        { $or: [{ 'lifecycle.state': { $ne: LifecycleState.DELETED } }, { 'lifecycle.state': { $exists: false } }] },
+      ];
+    }
 
     const [docs, total] = await Promise.all([
       M.find(filter)
@@ -46,21 +57,25 @@ export class ResourcesService {
       M.countDocuments(filter),
     ]);
 
-    return { list: docs, total, page, pageSize };
+    return { list: docs.map((d) => this.maskPasswords(d, def)), total, page, pageSize };
   }
 
   /** 资源详情 */
-  async detail(modelUid: string, id: string) {
+  async detail(modelUid: string, id: string, includeTrash = false) {
     const def = await this.modelsService.findByUid(modelUid);
     const M = await this.factory.getModelFor(def);
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('id 非法');
     const found = await M.findById(id).lean();
     if (!found) throw new NotFoundException(`资源 ${id} 不存在`);
+    if (!includeTrash) {
+      const deleted = (found as any).deletedAt != null || (found as any).lifecycle?.state === LifecycleState.DELETED;
+      if (deleted) throw new NotFoundException(`资源 ${id} 不存在`);
+    }
     return this.maskPasswords(found, def);
   }
 
   /** 新建资源 */
-  async create(modelUid: string, body: Record<string, unknown>) {
+  async create(modelUid: string, body: Record<string, unknown>, actor = 'system') {
     const def = await this.modelsService.findByUid(modelUid);
     this.validateBody(def, body);
     const M = await this.factory.getModelFor(def);
@@ -68,39 +83,100 @@ export class ResourcesService {
     if (!body.uid) {
       body.uid = new Types.ObjectId().toString();
     }
+    // v0.2: 默认 lifecycle.state = in_use
+    (body as any).lifecycle = {
+      state: LifecycleState.IN_USE,
+      enteredAt: new Date(),
+      enteredBy: actor,
+    };
+    (body as any).createdBy = actor;
     const created = await M.create(body);
-    return created.toObject();
+    this.emitter.emit('resource.created', { resourceId: created._id.toString(), modelUid, actor });
+    return this.maskPasswords(created.toObject(), def);
   }
 
   /** 更新资源 */
-  async update(modelUid: string, id: string, body: Record<string, unknown>) {
+  async update(modelUid: string, id: string, body: Record<string, unknown>, actor = 'system') {
     const def = await this.modelsService.findByUid(modelUid);
     this.validateBody(def, body, true);
     const M = await this.factory.getModelFor(def);
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('id 非法');
     const found = await M.findById(id);
     if (!found) throw new NotFoundException(`资源 ${id} 不存在`);
+    if ((found as any).deletedAt != null) {
+      throw new BadRequestException('资源已删除,无法更新');
+    }
     Object.assign(found, body);
+    (found as any).updatedBy = actor;
     await found.save();
     return this.maskPasswords(found.toObject(), def);
   }
 
-  /** 删除资源 */
-  async remove(modelUid: string, id: string): Promise<void> {
+  /** 删除资源 (v0.2: 改成软删除) */
+  async remove(modelUid: string, id: string, actor = 'system'): Promise<void> {
     const def = await this.modelsService.findByUid(modelUid);
     const M = await this.factory.getModelFor(def);
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('id 非法');
-    const res = await M.deleteOne({ _id: new Types.ObjectId(id) });
-    if (res.deletedCount === 0) throw new NotFoundException(`资源 ${id} 不存在`);
+    const doc = await M.findById(id);
+    if (!doc) throw new NotFoundException(`资源 ${id} 不存在`);
+    if ((doc as any).deletedAt != null) {
+      throw new BadRequestException('资源已在回收站');
+    }
+    (doc as any).lifecycle = {
+      state: LifecycleState.DELETED,
+      previousState: (doc as any).lifecycle?.state,
+      enteredAt: new Date(),
+      enteredBy: actor,
+      history: [
+        ...((doc as any).lifecycle?.history ?? []).slice(-19),
+        {
+          from: (doc as any).lifecycle?.state ?? LifecycleState.IN_USE,
+          to: LifecycleState.DELETED,
+          reason: 'soft delete via API',
+          actor,
+          at: new Date(),
+        },
+      ],
+    };
+    (doc as any).deletedAt = new Date();
+    (doc as any).deletedBy = actor;
+    await doc.save();
+    this.emitter.emit('resource.deleted', { resourceId: id, modelUid, actor });
   }
 
-  /** 批量删除 */
-  async batchRemove(modelUid: string, ids: string[]): Promise<{ deleted: number }> {
+  /** 批量删除 (v0.2: 软删除) */
+  async batchRemove(modelUid: string, ids: string[], actor = 'system'): Promise<{ deleted: number }> {
     const def = await this.modelsService.findByUid(modelUid);
     const M = await this.factory.getModelFor(def);
     const valid = ids.filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i));
-    const res = await M.deleteMany({ _id: { $in: valid } });
-    return { deleted: res.deletedCount ?? 0 };
+    let n = 0;
+    for (const oid of valid) {
+      const doc = await M.findById(oid);
+      if (!doc) continue;
+      if ((doc as any).deletedAt != null) continue;
+      (doc as any).lifecycle = {
+        state: LifecycleState.DELETED,
+        previousState: (doc as any).lifecycle?.state,
+        enteredAt: new Date(),
+        enteredBy: actor,
+        history: [
+          ...((doc as any).lifecycle?.history ?? []).slice(-19),
+          {
+            from: (doc as any).lifecycle?.state ?? LifecycleState.IN_USE,
+            to: LifecycleState.DELETED,
+            reason: 'batch soft delete',
+            actor,
+            at: new Date(),
+          },
+        ],
+      };
+      (doc as any).deletedAt = new Date();
+      (doc as any).deletedBy = actor;
+      await doc.save();
+      n++;
+    }
+    if (n > 0) this.emitter.emit('resource.batchDeleted', { resourceIds: valid.map(String), modelUid, actor });
+    return { deleted: n };
   }
 
   // ---------------- 内部工具 ----------------

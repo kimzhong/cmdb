@@ -24,29 +24,39 @@ export class ResourcesController {
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiQuery({ name: 'keyword', required: false })
+  @ApiQuery({ name: 'includeTrash', required: false, description: 'v0.2: true 返回已删除' })
   list(
     @Param('modelUid') modelUid: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('keyword') keyword?: string,
+    @Query('includeTrash') includeTrash?: string,
   ) {
     return this.service.list(modelUid, {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
       keyword,
+      includeTrash: includeTrash === 'true',
     });
   }
 
   @Public()
   @Get(':id')
   @ApiOperation({ summary: '资源详情' })
-  detail(@Param('modelUid') modelUid: string, @Param('id') id: string) {
-    return this.service.detail(modelUid, id);
+  detail(
+    @Param('modelUid') modelUid: string,
+    @Param('id') id: string,
+    @Query('includeTrash') includeTrash?: string,
+  ) {
+    return this.service.detail(modelUid, id, includeTrash === 'true');
   }
 
   @Post()
   @ApiOperation({ summary: '新建资源' })
-  create(@Param('modelUid') modelUid: string, @Body() body: Record<string, unknown>) {
+  create(
+    @Param('modelUid') modelUid: string,
+    @Body() body: Record<string, unknown>,
+  ) {
     return this.service.create(modelUid, body);
   }
 
@@ -61,14 +71,14 @@ export class ResourcesController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: '删除资源' })
+  @ApiOperation({ summary: '删除资源（v0.2: 软删除,进回收站）' })
   async remove(@Param('modelUid') modelUid: string, @Param('id') id: string) {
     await this.service.remove(modelUid, id);
-    return { id };
+    return { id, softDeleted: true };
   }
 
   @Post('batch-delete')
-  @ApiOperation({ summary: '批量删除' })
+  @ApiOperation({ summary: '批量删除（v0.2: 软删除）' })
   batchRemove(@Param('modelUid') modelUid: string, @Body() body: { ids: string[] }) {
     return this.service.batchRemove(modelUid, body.ids ?? []);
   }
