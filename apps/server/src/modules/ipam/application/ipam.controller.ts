@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { IpamService } from './ipam.service';
 
-@Controller('api/ipam')
+@Controller('ipam')
 export class IpamController {
   constructor(private readonly service: IpamService) {}
 

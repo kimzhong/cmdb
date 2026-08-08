@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { RoomService } from './room.service';
 
-@Controller('api/rooms')
+@Controller('rooms')
 export class RoomsController {
   constructor(private readonly service: RoomService) {}
 
@@ -21,7 +21,7 @@ export class RoomsController {
   createCabinet(@Param('id') id: string, @Body() dto: any) { return this.service.createCabinet(id, dto); }
 }
 
-@Controller('api/cabinets')
+@Controller('cabinets')
 export class CabinetsController {
   constructor(private readonly service: RoomService) {}
 

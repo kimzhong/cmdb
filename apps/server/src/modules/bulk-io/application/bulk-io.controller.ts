@@ -5,7 +5,7 @@ import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { BulkIoService } from './bulk-io.service';
 
-@Controller('api/bulk-io')
+@Controller('bulk-io')
 export class BulkIoController {
   constructor(private readonly service: BulkIoService) {}
 

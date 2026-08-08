@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@ne
 import { RelationsService, CreateRelationDto } from './relations.service';
 import { EndpointType } from '../domain/relation.aggregate';
 
-@Controller('api/relations')
+@Controller('relations')
 export class RelationsController {
   constructor(private readonly service: RelationsService) {}
 

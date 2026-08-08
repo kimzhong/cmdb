@@ -15,10 +15,11 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     proxy: {
-      // 开发期把 /api 代理到 NestJS
+      // 开发期把 /api 代理到 NestJS (用 127.0.0.1 避免 IPv6 ::1 解析问题)
       '/api': {
-        target: 'http://localhost:3030',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
+        ws: false,
       },
     },
   },

@@ -166,21 +166,22 @@ pnpm --filter @cmdb/web preview       # 预览生产构建
 ### 6.1 功能截图
 
 > 以下截图来自最新一次本地构建（`node scripts/capture-screenshots.cjs`），均使用 admin/admin 登录后的真实界面。
-> 共 11 张，覆盖所有业务模块。
+> 共 12 张，覆盖 v0.2 全部新模块 + v0.1 核心页面。
 
 | 页面 | 截图 |
 |---|---|
 | 登录 | ![登录](docs/screenshots/01-login.png) |
-| 元模型 — 分类 | ![元模型-分类](docs/screenshots/02-categories.png) |
-| 元模型 — 分组 | ![元模型-分组](docs/screenshots/03-groups.png) |
-| 元模型 — 模型（字段定义） | ![元模型-模型](docs/screenshots/04-models.png) |
-| 资源仓库（动态表单） | ![资源仓库](docs/screenshots/05-resources.png) |
-| 标签管理 | ![标签管理](docs/screenshots/06-tags.png) |
-| 应用视图 | ![应用视图](docs/screenshots/07-apps.png) |
-| 全局搜索 | ![全局搜索](docs/screenshots/08-search.png) |
-| 定时任务 | ![定时任务](docs/screenshots/09-sync.png) |
-| 审计日志 | ![审计日志](docs/screenshots/10-audit.png) |
-| 健康检查 | ![健康检查](docs/screenshots/11-health.png) |
+| 仪表盘 | ![仪表盘](docs/screenshots/02-dashboard.png) |
+| 关系管理 | ![关系管理](docs/screenshots/03-relations.png) |
+| 审批工单 | ![审批工单](docs/screenshots/04-approvals.png) |
+| 回收站 | ![回收站](docs/screenshots/05-trash.png) |
+| IPAM 子网 | ![IPAM 子网](docs/screenshots/06-ipam.png) |
+| 自动发现 | ![自动发现](docs/screenshots/07-discovery.png) |
+| 批量导入导出 | ![批量导入导出](docs/screenshots/08-bulk-io.png) |
+| 预置模型库 | ![预置模型库](docs/screenshots/09-templates.png) |
+| 机房拓扑 | ![机房拓扑](docs/screenshots/10-rooms.png) |
+| 元模型（v0.1） | ![元模型](docs/screenshots/11-models.png) |
+| 资源仓库（v0.1） | ![资源仓库](docs/screenshots/12-resources.png) |
 
 ## 7. 业务规则（来自 readme §7.2 删除约束）
 

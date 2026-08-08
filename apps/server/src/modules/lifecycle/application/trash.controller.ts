@@ -9,7 +9,7 @@ import { ModelsService } from '../../meta-model/models/models.service';
 import { DynamicSchemaFactory } from '../../resources/dynamic-schema.factory';
 import { LifecycleState } from '@cmdb/shared/types';
 
-@Controller('api/trash')
+@Controller('trash')
 export class TrashController {
   constructor(
     @InjectConnection() private readonly conn: Connection,

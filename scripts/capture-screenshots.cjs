@@ -13,23 +13,24 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
 
-const OUT = path.resolve(__dirname, '..', 'demo', 'screenshots');
+const OUT = path.resolve(__dirname, '..', 'docs', 'screenshots');
 const BASE = 'http://localhost:5173';
-const API = 'http://localhost:3030';
+const API = 'http://127.0.0.1:3000';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const steps = [
   { file: '01-login.png',          path: '/login',                 label: '登录页',                 ready: 'input[placeholder*="用户名"], input[type="text"]' },
-  { file: '02-categories.png',     path: '/meta-model/categories', label: '模型分类',               ready: 'text=模型分类' },
-  { file: '03-groups.png',         path: '/meta-model/groups',     label: '模型分组',               ready: 'text=模型分组' },
-  { file: '04-models.png',         path: '/meta-model/models',     label: '模型（含字段定义）',     ready: 'text=模型' },
-  { file: '05-resources.png',      path: '/resources',             label: '资源仓库（动态表单）',   ready: 'text=资源仓库, text=资源' },
-  { file: '06-tags.png',           path: '/tags',                  label: '标签管理',               ready: 'text=标签' },
-  { file: '07-apps.png',           path: '/apps',                  label: '应用视图',               ready: 'text=应用' },
-  { file: '08-search.png',         path: '/search',                label: '全局搜索',               ready: 'text=全局搜索, text=搜索' },
-  { file: '09-sync.png',           path: '/sync',                  label: '定时任务',               ready: 'text=定时任务, text=同步' },
-  { file: '10-audit.png',          path: '/audit',                 label: '审计日志',               ready: 'text=审计' },
-  { file: '11-health.png',         path: '/health',                label: '健康检查',               ready: 'text=健康' },
+  { file: '02-dashboard.png',      path: '/dashboard',             label: '仪表盘',                 ready: 'text=仪表盘' },
+  { file: '03-relations.png',      path: '/relations',             label: '关系管理',               ready: 'text=关系管理' },
+  { file: '04-approvals.png',      path: '/approvals',             label: '审批工单',               ready: 'text=审批工单' },
+  { file: '05-trash.png',          path: '/trash',                 label: '回收站',                 ready: 'text=回收站' },
+  { file: '06-ipam.png',           path: '/ipam',                  label: 'IPAM 子网',              ready: 'text=IPAM' },
+  { file: '07-discovery.png',      path: '/discovery',             label: '自动发现',               ready: 'text=自动发现' },
+  { file: '08-bulk-io.png',        path: '/bulk-io',               label: '批量导入导出',           ready: 'text=批量导入导出' },
+  { file: '09-templates.png',      path: '/model-templates',      label: '预置模型库',             ready: 'text=预置模型库' },
+  { file: '10-rooms.png',          path: '/rooms',                 label: '机房拓扑',               ready: 'text=机房' },
+  { file: '11-models.png',         path: '/meta-model/models',     label: '元模型（v0.1）',         ready: 'text=模型' },
+  { file: '12-resources.png',      path: '/resources',             label: '资源仓库（v0.1）',       ready: 'text=资源仓库' },
 ];
 
 async function getRealToken() {

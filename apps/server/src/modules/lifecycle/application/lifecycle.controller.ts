@@ -6,7 +6,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/co
 import { LifecycleState } from '@cmdb/shared/types';
 import { ResourcesLifecycleService, TransitionDto } from './resources-lifecycle.service';
 
-@Controller('api/resources')
+@Controller('resources')
 export class LifecycleController {
   constructor(private readonly service: ResourcesLifecycleService) {}
 

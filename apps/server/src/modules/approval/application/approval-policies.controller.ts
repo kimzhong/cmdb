@@ -5,7 +5,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common'
 import { ApprovalRepository } from '../infra/approval.repository';
 import { ApprovalPolicy } from '@cmdb/shared/types/approval';
 
-@Controller('api/approval-policies')
+@Controller('approval-policies')
 export class ApprovalPoliciesController {
   constructor(private readonly repo: ApprovalRepository) {}
 

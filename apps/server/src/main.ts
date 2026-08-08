@@ -58,8 +58,10 @@ async function bootstrap() {
     });
   }
 
-  await app.listen(port);
-  Logger.log(`🚀 Server running on http://localhost:${port}/${prefix}`, 'Bootstrap');
+  // 显式监听 0.0.0.0,确保 IPv4 也能访问(默认 Node.js 17+ 优先 IPv6)
+  const host = config.get<string>('SERVER_HOST', '0.0.0.0');
+  await app.listen(port, host);
+  Logger.log(`🚀 Server running on http://${host}:${port}/${prefix}`, 'Bootstrap');
   if (swaggerEnabled) {
     Logger.log(`📘 Swagger:    http://localhost:${port}/${swaggerPath}`, 'Bootstrap');
   }

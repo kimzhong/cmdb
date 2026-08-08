@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { DiscoveryService } from './discovery.service';
 
-@Controller('api/discovery')
+@Controller('discovery')
 export class DiscoveryController {
   constructor(private readonly service: DiscoveryService) {}
 

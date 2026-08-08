@@ -11,10 +11,32 @@
       "require": "./dist/index.js"
     },
     "./types": {
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.js"
     },
+    "./types/action": "./dist/types/action.js",
+    "./types/api": "./dist/types/api.js",
+    "./types/approval": "./dist/types/approval.js",
+    "./types/error-code": "./dist/types/error-code.js",
+    "./types/field": "./dist/types/field.js",
+    "./types/meta-model": "./dist/types/meta-model.js",
+    "./types/permission": "./dist/types/permission.js",
+    "./types/relation": "./dist/types/relation.js",
+    "./types/reporting": "./dist/types/reporting.js",
+    "./types/action.js": "./dist/types/action.js",
+    "./types/api.js": "./dist/types/api.js",
+    "./types/approval.js": "./dist/types/approval.js",
+    "./types/error-code.js": "./dist/types/error-code.js",
+    "./types/field.js": "./dist/types/field.js",
+    "./types/meta-model.js": "./dist/types/meta-model.js",
+    "./types/permission.js": "./dist/types/permission.js",
+    "./types/relation.js": "./dist/types/relation.js",
+    "./types/reporting.js": "./dist/types/reporting.js",
     "./utils": {
-      "types": "./dist/utils/index.d.ts"
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js",
+      "require": "./dist/utils/index.js"
     }
   },
   "files": ["dist"],

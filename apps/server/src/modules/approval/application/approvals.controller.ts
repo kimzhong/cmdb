@@ -4,7 +4,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApprovalsService, CreateApprovalDto } from './approvals.service';
 
-@Controller('api/approvals')
+@Controller('approvals')
 export class ApprovalsController {
   constructor(private readonly service: ApprovalsService) {}
 

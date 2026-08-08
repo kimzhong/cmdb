@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ModelTemplatesService } from './model-templates.service';
 
-@Controller('api/model-templates')
+@Controller('model-templates')
 export class ModelTemplatesController {
   constructor(private readonly service: ModelTemplatesService) {}
 
