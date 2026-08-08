@@ -1,21 +1,25 @@
 /**
  * Approval 限界上下文 (F5)
- *
- * 责任:
- *  - 审批策略管理 (approval_policies)
- *  - 审批工单 (approvals)
- *  - ApprovalEngine: 拦截/创建/审批/应用
- *
- * 上下游:
- *  - 被 resources / relations / ipam 等的写操作调用
- *  - 工单通过后发出 approval.applied 事件
  */
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Approval, ApprovalSchema } from './infra/approval.schema';
+import { ApprovalPolicy, ApprovalPolicySchema } from './infra/approval-policy.schema';
+import { ApprovalRepository } from './infra/approval.repository';
+import { ApprovalsService } from './application/approvals.service';
+import { ApprovalsController } from './application/approvals.controller';
+import { ApprovalPoliciesController } from './application/approval-policies.controller';
+import { PolicyEvaluator } from './domain/policy-evaluator';
 
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Approval.name, schema: ApprovalSchema },
+      { name: ApprovalPolicy.name, schema: ApprovalPolicySchema },
+    ]),
+  ],
+  controllers: [ApprovalsController, ApprovalPoliciesController],
+  providers: [ApprovalRepository, ApprovalsService, PolicyEvaluator],
+  exports: [ApprovalsService, ApprovalRepository, PolicyEvaluator],
 })
 export class ApprovalModule {}
