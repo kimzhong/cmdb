@@ -52,6 +52,24 @@ const routes = [
     name: 'Task',
     component: () => import('../views/Task.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/tree',
+    name: 'Tree',
+    component: () => import('../views/TreeView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/graph',
+    name: 'Graph',
+    component: () => import('../views/RelationGraph.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/graph/:resourceId',
+    name: 'GraphById',
+    component: () => import('../views/RelationGraph.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

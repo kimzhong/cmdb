@@ -7,13 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"cmdb/config"
 	"cmdb/database"
+	"cmdb/internal/discovery"
 	"cmdb/internal/middleware"
 	"cmdb/internal/models"
+	"cmdb/internal/services"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -81,6 +84,13 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/relations", createRelation)
 		auth.DELETE("/relations/:id", deleteRelation)
 
+		// 关系实例（Phase 2：通用 Relation 引擎，独立集合 relation_instances）
+		auth.POST("/relations/instances", bindRelationInstance)
+		auth.DELETE("/relations/instances", unbindRelationInstance)
+		auth.GET("/relations/instances/resource/:id", listRelationInstancesByResource)
+		auth.GET("/relations/instances/by-type/:relationId", listRelationInstancesByType)
+		auth.GET("/relations/instances/graph/:id", getRelationGraph)
+
 		// 资源管理
 		auth.GET("/resources/model/:modelId", listResources)
 		auth.POST("/resources", createResource)
@@ -88,6 +98,9 @@ func SetupRouter() *gin.Engine {
 		auth.PUT("/resources/:id", updateResource)
 		auth.DELETE("/resources/:id", deleteResource)
 		auth.POST("/resources/batch-delete", batchDeleteResources)
+
+		// 资源树形视图（Phase 5）
+		auth.GET("/resources/tree", getResourceTree)
 
 		// 资源关系
 		auth.POST("/resources/:id/relations", createResourceRelation)
@@ -148,6 +161,14 @@ func SetupRouter() *gin.Engine {
 		auth.PUT("/tasks/:id", updateTask)
 		auth.DELETE("/tasks/:id", deleteTask)
 		auth.POST("/tasks/:id/run", runTask)
+
+		// 自动发现规则（Phase 3）
+		auth.GET("/discovery/rules", listDiscoveryRules)
+		auth.POST("/discovery/rules", createDiscoveryRule)
+		auth.GET("/discovery/rules/:id", getDiscoveryRule)
+		auth.PUT("/discovery/rules/:id", updateDiscoveryRule)
+		auth.DELETE("/discovery/rules/:id", deleteDiscoveryRule)
+		auth.POST("/discovery/rules/:id/run", runDiscoveryRule)
 	}
 
 	return r
@@ -203,7 +224,7 @@ func login(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"code":   200,
+		"code":    200,
 		"message": "success",
 		"data": gin.H{
 			"token": token,
@@ -252,7 +273,7 @@ func ldapLogin(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"code":   200,
+		"code":    200,
 		"message": "success",
 		"data": gin.H{
 			"token": token,
@@ -284,7 +305,7 @@ func registerUser(c *gin.Context) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 
 	user := &models.User{
-		Username:  req.Username,
+		Username: req.Username,
 		Password: string(hashedPassword),
 		Email:    req.Email,
 		Nickname: req.Nickname,
@@ -832,6 +853,107 @@ func deleteRelation(c *gin.Context) {
 	c.JSON(200, gin.H{"code": 200, "message": "success"})
 }
 
+// ========== 关系实例（Phase 2） ==========
+
+// bindRelationInstance POST /api/v1/relations/instances
+// body: { relation_id, from_resource_id, to_resource_id }
+func bindRelationInstance(c *gin.Context) {
+	var req struct {
+		RelationID     string `json:"relation_id"`
+		FromResourceID string `json:"from_resource_id"`
+		ToResourceID   string `json:"to_resource_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "invalid request: " + err.Error()})
+		return
+	}
+	if req.RelationID == "" || req.FromResourceID == "" || req.ToResourceID == "" {
+		c.JSON(400, gin.H{"code": 400, "message": "relation_id, from_resource_id, to_resource_id are required"})
+		return
+	}
+
+	relSvc := services.NewRelationService()
+	relation, err := relSvc.GetByID(req.RelationID)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "relation not found"})
+		return
+	}
+
+	resSvc := services.NewResourceService()
+	from, err := resSvc.GetByID(req.FromResourceID)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "from_resource not found"})
+		return
+	}
+	to, err := resSvc.GetByID(req.ToResourceID)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "to_resource not found"})
+		return
+	}
+
+	if err := services.NewRelationInstanceService().Bind(relation, from, to); err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "message": "bound"})
+}
+
+// unbindRelationInstance DELETE /api/v1/relations/instances?from=..&to=..&relation=..
+func unbindRelationInstance(c *gin.Context) {
+	from := c.Query("from")
+	to := c.Query("to")
+	relation := c.Query("relation")
+	if from == "" || to == "" {
+		c.JSON(400, gin.H{"code": 400, "message": "from and to are required"})
+		return
+	}
+	if err := services.NewRelationInstanceService().Unbind(from, to, relation); err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "message": "unbound"})
+}
+
+// listRelationInstancesByResource GET /api/v1/relations/instances/resource/:id
+func listRelationInstancesByResource(c *gin.Context) {
+	id := c.Param("id")
+	instances, err := services.NewRelationInstanceService().GetByResource(id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": instances})
+}
+
+// listRelationInstancesByType GET /api/v1/relations/instances/by-type/:relationId?page=1&pageSize=20
+// getRelationGraph GET /api/v1/relations/instances/graph/:id?depth=N
+// 返回 nodes + edges，供前端 vis-network 渲染
+func getRelationGraph(c *gin.Context) {
+	id := c.Param("id")
+	depth, _ := strconv.Atoi(c.DefaultQuery("depth", "2"))
+	result, err := services.NewRelationInstanceService().Graph(id, depth)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": result})
+}
+
+func listRelationInstancesByType(c *gin.Context) {
+	relationID := c.Param("relationId")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if page < 1 {
+		page = 1
+	}
+	instances, total, err := services.NewRelationInstanceService().ListByRelationType(relationID, page, pageSize)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": gin.H{"list": instances, "total": total, "page": page, "pageSize": pageSize}})
+}
+
 // ========== 资源相关 ==========
 
 func listResources(c *gin.Context) {
@@ -865,7 +987,7 @@ func listResources(c *gin.Context) {
 func createResource(c *gin.Context) {
 	var req struct {
 		ModelID string                 `json:"model_id"`
-		Data    map[string]interface{}  `json:"data"`
+		Data    map[string]interface{} `json:"data"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"code": 400, "message": "Invalid request"})
@@ -1038,12 +1160,88 @@ func batchDeleteResources(c *gin.Context) {
 	})
 }
 
+// getResourceTree GET /api/v1/resources/tree?model_id=xxx&group_by=field_identify
+// 返回嵌套结构：每个 group_by 值是一个分支节点，下挂该值下的所有资源。
+// 资源未填 group_by 字段时归入 "__未填写__" 分支。
+func getResourceTree(c *gin.Context) {
+	modelID := c.Query("model_id")
+	groupBy := c.Query("group_by")
+	if modelID == "" {
+		c.JSON(400, gin.H{"code": 400, "message": "model_id is required"})
+		return
+	}
+	if groupBy == "" {
+		groupBy = "唯一标识"
+	}
+
+	oid, err := primitive.ObjectIDFromHex(modelID)
+	if err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "invalid model_id"})
+		return
+	}
+
+	svc := services.NewResourceService()
+	res, _, err := svc.ListByModel(modelID, 1, 1000)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	// 分组：按 data[group_by]
+	type Leaf struct {
+		ID   string                 `json:"id"`
+		Data map[string]interface{} `json:"data"`
+	}
+	type Branch struct {
+		Key    string `json:"key"`
+		Title  string `json:"title"`
+		Count  int    `json:"count"`
+		Leaves []Leaf `json:"leaves"`
+	}
+
+	branches := make(map[string]*Branch)
+	order := []string{}
+	for _, r := range res {
+		var val string
+		if r.Data != nil {
+			if v, ok := r.Data[groupBy].(string); ok {
+				val = v
+			}
+		}
+		if val == "" {
+			val = "__未填写__"
+		}
+		b, ok := branches[val]
+		if !ok {
+			b = &Branch{Key: val, Title: val, Leaves: []Leaf{}}
+			branches[val] = b
+			order = append(order, val)
+		}
+		b.Leaves = append(b.Leaves, Leaf{ID: r.ID.Hex(), Data: r.Data})
+		b.Count++
+	}
+
+	out := make([]*Branch, 0, len(order))
+	for _, k := range order {
+		out = append(out, branches[k])
+	}
+	c.JSON(200, gin.H{
+		"code": 200,
+		"data": gin.H{
+			"model_id": oid.Hex(),
+			"group_by": groupBy,
+			"total":    len(res),
+			"branches": out,
+		},
+	})
+}
+
 // 资源关系
 func createResourceRelation(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
 		RelationIdentify string   `json:"relation_identify"`
-		TargetIDs         []string `json:"target_ids"`
+		TargetIDs        []string `json:"target_ids"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1143,10 +1341,10 @@ func getResourceRelations(c *gin.Context) {
 				resourceCollection.FindOne(c.Request.Context(), bson.M{"_id": targetID}).Decode(&targetResource)
 
 				relInfo := map[string]interface{}{
-					"id":           targetID.Hex(),
-					"identify":     identify,
-					"name":         relName,
-					"target_data":  targetResource.Data,
+					"id":          targetID.Hex(),
+					"identify":    identify,
+					"name":        relName,
+					"target_data": targetResource.Data,
 				}
 
 				if relType == "belong" {
@@ -1198,12 +1396,12 @@ func getResourceRelations(c *gin.Context) {
 		"code": 200,
 		"data": gin.H{
 			"belong": gin.H{
-				"own":    belongRelations,      // 当前资源从属于谁
-				"reverse": reverseBelong,        // 谁从属于当前资源
+				"own":     belongRelations, // 当前资源从属于谁
+				"reverse": reverseBelong,   // 谁从属于当前资源
 			},
 			"connect": gin.H{
-				"own":    connectRelations,      // 当前资源连接了谁
-				"reverse": reverseConnect,        // 谁连接了当前资源
+				"own":     connectRelations, // 当前资源连接了谁
+				"reverse": reverseConnect,   // 谁连接了当前资源
 			},
 		},
 	})
@@ -1301,7 +1499,7 @@ func globalSearch(c *gin.Context) {
 		modelCollection.FindOne(c.Request.Context(), bson.M{"_id": r.ModelID}).Decode(&model)
 
 		results = append(results, map[string]interface{}{
-			"id":              r.ID.Hex(),
+			"id":             r.ID.Hex(),
 			"model_id":       r.ModelID.Hex(),
 			"model_name":     model.Name,
 			"model_identify": r.ModelIdentify,
@@ -1594,9 +1792,9 @@ func getStats(c *gin.Context) {
 		"code": 200,
 		"data": gin.H{
 			"modelCount":    modelCount,
-			"resourceCount":  resourceCount,
-			"tagCount":       tagCount,
-			"userCount":      userCount,
+			"resourceCount": resourceCount,
+			"tagCount":      tagCount,
+			"userCount":     userCount,
 		},
 	})
 }
@@ -1631,15 +1829,15 @@ func listApps(c *gin.Context) {
 	var result []map[string]interface{}
 	for _, app := range apps {
 		result = append(result, map[string]interface{}{
-			"id":           app.ID.Hex(),
-			"name":         app.Name,
-			"identify":     app.Identify,
+			"id":          app.ID.Hex(),
+			"name":        app.Name,
+			"identify":    app.Identify,
 			"business_id": app.BusinessID.Hex(),
-			"description":  app.Description,
-			"owner":        app.Owner,
-			"status":       app.Status,
-			"created_at":   app.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":   app.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"description": app.Description,
+			"owner":       app.Owner,
+			"status":      app.Status,
+			"created_at":  app.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  app.UpdatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
@@ -1704,7 +1902,7 @@ func createApp(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"code":  200,
+		"code":    200,
 		"message": "success",
 		"data": map[string]interface{}{
 			"id": result.InsertedID.(primitive.ObjectID).Hex(),
@@ -1731,15 +1929,15 @@ func getApp(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"code": 200,
 		"data": map[string]interface{}{
-			"id":           app.ID.Hex(),
-			"name":         app.Name,
-			"identify":     app.Identify,
-			"business_id":  app.BusinessID.Hex(),
-			"description":  app.Description,
-			"owner":        app.Owner,
-			"status":       app.Status,
-			"created_at":   app.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":   app.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"id":          app.ID.Hex(),
+			"name":        app.Name,
+			"identify":    app.Identify,
+			"business_id": app.BusinessID.Hex(),
+			"description": app.Description,
+			"owner":       app.Owner,
+			"status":      app.Status,
+			"created_at":  app.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  app.UpdatedAt.Format("2006-01-02 15:04:05"),
 		},
 	})
 }
@@ -2201,17 +2399,17 @@ func listTasks(c *gin.Context) {
 			lastRunAt = task.LastRunAt.Format("2006-01-02 15:04:05")
 		}
 		result = append(result, map[string]interface{}{
-			"id":          task.ID.Hex(),
-			"name":        task.Name,
-			"identify":    task.Identify,
-			"model_id":    task.ModelID.Hex(),
-			"cloud_type":  task.CloudType,
-			"sync_type":   task.SyncType,
-			"schedule":    task.Schedule,
-			"status":      task.Status,
-			"lastRunAt":   lastRunAt,
-			"created_at":  task.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":  task.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"id":         task.ID.Hex(),
+			"name":       task.Name,
+			"identify":   task.Identify,
+			"model_id":   task.ModelID.Hex(),
+			"cloud_type": task.CloudType,
+			"sync_type":  task.SyncType,
+			"schedule":   task.Schedule,
+			"status":     task.Status,
+			"lastRunAt":  lastRunAt,
+			"created_at": task.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at": task.UpdatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
@@ -2307,17 +2505,17 @@ func getTask(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"code": 200,
 		"data": map[string]interface{}{
-			"id":          task.ID.Hex(),
-			"name":        task.Name,
-			"identify":    task.Identify,
-			"model_id":    task.ModelID.Hex(),
-			"cloud_type":  task.CloudType,
-			"sync_type":   task.SyncType,
-			"schedule":    task.Schedule,
-			"status":      task.Status,
-			"lastRunAt":   lastRunAt,
-			"created_at":  task.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":  task.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"id":         task.ID.Hex(),
+			"name":       task.Name,
+			"identify":   task.Identify,
+			"model_id":   task.ModelID.Hex(),
+			"cloud_type": task.CloudType,
+			"sync_type":  task.SyncType,
+			"schedule":   task.Schedule,
+			"status":     task.Status,
+			"lastRunAt":  lastRunAt,
+			"created_at": task.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at": task.UpdatedAt.Format("2006-01-02 15:04:05"),
 		},
 	})
 }
@@ -2419,6 +2617,100 @@ func runTask(c *gin.Context) {
 	})
 
 	c.JSON(200, gin.H{"code": 200, "message": "任务已触发执行"})
+}
+
+// ========== 自动发现规则（Phase 3） ==========
+
+func listDiscoveryRules(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if page < 1 {
+		page = 1
+	}
+	rules, total, err := services.NewDiscoveryService().List(page, pageSize)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": gin.H{"list": rules, "total": total, "page": page, "pageSize": pageSize}})
+}
+
+func createDiscoveryRule(c *gin.Context) {
+	var rule models.DiscoveryRule
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "invalid request: " + err.Error()})
+		return
+	}
+	if err := services.NewDiscoveryService().Create(&rule); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": rule})
+}
+
+func getDiscoveryRule(c *gin.Context) {
+	id := c.Param("id")
+	r, err := services.NewDiscoveryService().GetByID(id)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": r})
+}
+
+func updateDiscoveryRule(c *gin.Context) {
+	id := c.Param("id")
+	var rule models.DiscoveryRule
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "invalid request: " + err.Error()})
+		return
+	}
+	rule.ID, _ = primitive.ObjectIDFromHex(id)
+	if err := services.NewDiscoveryService().Update(&rule); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "data": rule})
+}
+
+func deleteDiscoveryRule(c *gin.Context) {
+	id := c.Param("id")
+	if err := services.NewDiscoveryService().Delete(id); err != nil {
+		c.JSON(400, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "message": "deleted"})
+}
+
+// runDiscoveryRule 手动触发一次规则执行（同步执行，立即返回结果）
+func runDiscoveryRule(c *gin.Context) {
+	id := c.Param("id")
+	r, err := services.NewDiscoveryService().GetByID(id)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": err.Error()})
+		return
+	}
+	reg := discovery.NewRegistry()
+	reg.Register(discovery.NewStaticExecutor())
+	exec, ok := reg.Get(r.SourceType)
+	if !ok {
+		c.JSON(400, gin.H{"code": 400, "message": "no executor for source_type " + r.SourceType})
+		return
+	}
+	target, err := services.NewModelService().GetByID(r.TargetModelID.Hex())
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "target model: " + err.Error()})
+		return
+	}
+	result, err := exec.Execute(c.Request.Context(), r, target)
+	if err != nil {
+		services.NewDiscoveryService().RecordRun(r.ID.Hex(), models.DiscoveryRunFailed, err.Error())
+		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	msg := fmt.Sprintf("created=%d updated=%d failed=%d", result.Created, result.Updated, result.Failed)
+	services.NewDiscoveryService().RecordRun(r.ID.Hex(), models.DiscoveryRunSuccess, msg)
+	c.JSON(200, gin.H{"code": 200, "data": gin.H{"result": result, "message": msg}})
 }
 
 // ========== 辅助函数 ==========

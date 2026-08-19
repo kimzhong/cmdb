@@ -453,6 +453,27 @@ return fmt.Errorf("operation failed: %w", err)
 
 ---
 
+
+
+
+### Phase 6 关键设计
+
+- **后端 BFS 聚合**：`RelationInstanceService.Graph(center, depth)` 一次返回 nodes + edges，深度上限 3 层避免爆炸。
+- **前端 vis-network**：standalone 模式（无需 PeerJS），中心节点高亮 + 物理稳定 + 边类型着色（belong=蓝 / connect=绿）。
+- **资源页联动**：资源列表「关系图」按钮 → `/graph?center=xxx`。
+- **菜单与路由**：`/graph` + `/graph/:resourceId`，顶部菜单加「关系图」。
+### Phase 5 关键设计
+
+- **后端聚合端点**：`GET /api/v1/resources/tree?model_id=xxx&group_by=field_identify`，单次返回整棵层级树。
+- **未填写兜底**：缺 `group_by` 值的资源归入 `__未填写__` 分支。
+- **前端 `a-tree` + `a-select`**：下拉切换模型 / 分层字段，左侧树、右侧资源详情面板。
+- **路由与菜单**：`/tree` + 顶部菜单「资源层级」。
+### Phase 3 关键设计
+
+- **执行器抽象**：`internal/discovery/executor.go` 定义 `Executor` interface + `Registry`，Phase 3 仅实现 `StaticExecutor`，后续可平滑接入 SSH/HTTP/Cloud。
+- **调度策略**：自实现 30s tick + `interval:Ns/Nm/Nh` 解析（不依赖 `robfig/cron`，因网络受限暂未引入）。
+- **幂等 upsert**：Static executor 按 `data.唯一标识` 查重；新建或更新。
+- **6 个 REST 端点**：`/api/v1/discovery/rules` 系列 CRUD + `/:id/run` 手动触发。
 ## 🤝 贡献
 
 1. Fork 仓库
@@ -473,6 +494,38 @@ node tests/e2e_frontend.js
 ```
 
 ---
+
+
+## 🧭 架构演进：术语对照表
+
+本项目参考 [易维 CMDB（veops/cmdb）](https://veops.cn/docs/docs/cmdb/cmdb_design) 的 4 层架构思想演进。  
+数据结构与 BSON 字段保持不变，**仅引入别名注释**，对外 API 与前端无任何破坏性改动。
+
+| 现有模型 | 易维术语 | 含义 |
+|---|---|---|
+| `User` | User | 用户 |
+| `ModelGroup` | CITypeGroup | 模型分组（CI 类型的分类容器） |
+| `Model` | CIType | 模型（CI 类型定义） |
+| `FieldGroup` | AttributeGroup | 字段分组（属性在 UI 上的分组） |
+| `Field` | Attribute | 字段（CI 的属性定义） |
+| `Relation` | RelationType | 关系定义（schema：belong/connect + 基数） |
+| `Resource` | CI | 资源（配置项实例） |
+| `Resource.Relations` | RelationInstance | 实例化双向边（Phase 2 升级为独立集合） |
+| `TagKey` / `TagValue` | Tag | 标签键值（灵活打标） |
+| `SyncTask` | DiscoveryRule | 自动发现/同步任务（Phase 3 升级为规则引擎） |
+| `Application` | Application | 应用（业务侧实体） |
+| `Business` | Business | 业务线 |
+
+### 演进路线
+
+| Phase | 目标 | 状态 |
+|---|---|---|
+| 1 | 数据模型对齐（别名注释 + 术语对照表） | ✅ 本次 |
+| 2 | 通用 Relation 引擎（独立 `relation_instances` 集合 + 双向边） | ⏳ |
+| 3 | 自动发现规则引擎（`DiscoveryRule` + Static executor + interval 调度） | ✅ |
+| 4 | 索引与检索优化（`ensureIndexes` + 复合索引） | ⏳ |
+| 5 | 前端树形层级视图（`TreeView.vue` + `/resources/tree` 后端聚合） | ✅ |
+| 6 | 前端关系视图（`RelationGraph.vue` + vis-network + BFS 后端聚合） | ✅ |
 
 ## 📚 相关文档
 

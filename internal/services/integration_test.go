@@ -262,3 +262,213 @@ func TestResourceService_CRUD(t *testing.T) {
 		t.Error("expected error fetching deleted resource")
 	}
 }
+
+// TestRelationInstance_BelongBidirectional belong 类型应建立双向两条记录
+func TestRelationInstance_BelongBidirectional(t *testing.T) {
+	setupTestDB(t)
+
+	// 准备：1 个 model_group + 1 个 model（subnet） + 1 个 model（host）
+	groupID := mustInsertModelGroup(t)
+	modelSvc := NewModelService()
+	subnetModel := &models.Model{Identify: "subnet", Name: "子网", ModelGroupID: groupID}
+	if err := modelSvc.Create(subnetModel); err != nil {
+		t.Fatal(err)
+	}
+	hostModel := &models.Model{Identify: "host", Name: "主机", ModelGroupID: groupID}
+	if err := modelSvc.Create(hostModel); err != nil {
+		t.Fatal(err)
+	}
+
+	// 准备：1 个 subnet 资源 + 1 个 host 资源
+	resSvc := NewResourceService()
+	subnet := &models.Resource{ModelID: subnetModel.ID, ModelIdentify: "subnet", Data: bson.M{"cidr": "10.0.0.0/24"}}
+	if err := resSvc.Create(subnet); err != nil {
+		t.Fatal(err)
+	}
+	host := &models.Resource{ModelID: hostModel.ID, ModelIdentify: "host", Data: bson.M{"ip": "10.0.0.1"}}
+	if err := resSvc.Create(host); err != nil {
+		t.Fatal(err)
+	}
+
+	// 定义一个 belong 关系：host 从属于 subnet
+	relation := &models.Relation{
+		ModelID:     hostModel.ID,
+		Name:        "子网归属",
+		Identify:    "subnet_own",
+		TargetModel: subnetModel.ID,
+		Type:        "belong",
+		Cardinality: "one-to-one",
+	}
+	if err := NewRelationService().Create(relation); err != nil {
+		t.Fatal(err)
+	}
+
+	// Bind
+	instSvc := NewRelationInstanceService()
+	if err := instSvc.Bind(relation, host, subnet); err != nil {
+		t.Fatalf("bind: %v", err)
+	}
+
+	// 验证：双向都应能查到（出向 + 入向）
+	hostInstances, err := instSvc.GetByResource(host.ID.Hex())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hostInstances) != 2 {
+		t.Errorf("host instances expected 2 (forward+reverse), got %d", len(hostInstances))
+	}
+
+	subnetInstances, err := instSvc.GetByResource(subnet.ID.Hex())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subnetInstances) != 2 {
+		t.Errorf("subnet instances expected 2 (forward+reverse), got %d", len(subnetInstances))
+	}
+
+	// Unbind（仅指定 relation_identify）
+	if err := instSvc.Unbind(host.ID.Hex(), subnet.ID.Hex(), "subnet_own"); err != nil {
+		t.Fatalf("unbind: %v", err)
+	}
+
+	// 验证：双方均已清空
+	left, _ := instSvc.CountByResource(host.ID.Hex())
+	if left != 0 {
+		t.Errorf("after unbind host has %d relations, expected 0", left)
+	}
+	left, _ = instSvc.CountByResource(subnet.ID.Hex())
+	if left != 0 {
+		t.Errorf("after unbind subnet has %d relations, expected 0", left)
+	}
+}
+
+// TestRelationInstance_ConnectUnidirectional connect 类型只建立单向记录
+func TestRelationInstance_ConnectUnidirectional(t *testing.T) {
+	setupTestDB(t)
+
+	groupID := mustInsertModelGroup(t)
+	modelSvc := NewModelService()
+	hostModel := &models.Model{Identify: "host", Name: "主机", ModelGroupID: groupID}
+	if err := modelSvc.Create(hostModel); err != nil {
+		t.Fatal(err)
+	}
+	diskModel := &models.Model{Identify: "disk", Name: "磁盘", ModelGroupID: groupID}
+	if err := modelSvc.Create(diskModel); err != nil {
+		t.Fatal(err)
+	}
+
+	resSvc := NewResourceService()
+	h := &models.Resource{ModelID: hostModel.ID, ModelIdentify: "host", Data: bson.M{"ip": "10.0.0.1"}}
+	d1 := &models.Resource{ModelID: diskModel.ID, ModelIdentify: "disk", Data: bson.M{"size": 100}}
+	d2 := &models.Resource{ModelID: diskModel.ID, ModelIdentify: "disk", Data: bson.M{"size": 200}}
+	for _, r := range []*models.Resource{h, d1, d2} {
+		if err := resSvc.Create(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	relation := &models.Relation{
+		ModelID:     hostModel.ID,
+		Name:        "挂载磁盘",
+		Identify:    "mount_disk",
+		TargetModel: diskModel.ID,
+		Type:        "connect",
+		Cardinality: "one-to-many",
+	}
+	if err := NewRelationService().Create(relation); err != nil {
+		t.Fatal(err)
+	}
+
+	instSvc := NewRelationInstanceService()
+	// 主机连接两块磁盘
+	if err := instSvc.Bind(relation, h, d1); err != nil {
+		t.Fatal(err)
+	}
+	if err := instSvc.Bind(relation, h, d2); err != nil {
+		t.Fatal(err)
+	}
+
+	// 验证：host 出向应有 2 条；disk 入向各 1 条（connect 不自动反向）
+	hostOut, _ := instSvc.CountByResource(h.ID.Hex())
+	if hostOut != 2 {
+		t.Errorf("host outgoing expected 2, got %d", hostOut)
+	}
+	d1In, _ := instSvc.CountByResource(d1.ID.Hex())
+	d2In, _ := instSvc.CountByResource(d2.ID.Hex())
+	if d1In != 1 || d2In != 1 {
+		t.Errorf("disk incoming expected 1+1, got %d+%d", d1In, d2In)
+	}
+
+	// 按 relation_id 列出全部实例，应为 2 条（两条都是 connect，只单向）
+	list, total, err := instSvc.ListByRelationType(relation.ID.Hex(), 1, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("ListByRelationType total expected 2, got %d", total)
+	}
+	if len(list) != 2 {
+		t.Errorf("ListByRelationType list len expected 2, got %d", len(list))
+	}
+}
+
+// TestRelationInstance_GraphBFS 验证 Graph 方法的 BFS 行为：
+//   - 中心节点始终包含
+//   - BFS 限制 depth
+//   - 节点与边都在返回中
+func TestRelationInstance_GraphBFS(t *testing.T) {
+	setupTestDB(t)
+
+	groupID := mustInsertModelGroup(t)
+	modelSvc := NewModelService()
+	subnetModel := &models.Model{Identify: "subnet", Name: "子网", ModelGroupID: groupID}
+	modelSvc.Create(subnetModel)
+	hostModel := &models.Model{Identify: "host", Name: "主机", ModelGroupID: groupID}
+	modelSvc.Create(hostModel)
+	diskModel := &models.Model{Identify: "disk", Name: "磁盘", ModelGroupID: groupID}
+	modelSvc.Create(diskModel)
+
+	resSvc := NewResourceService()
+	subnet := &models.Resource{ModelID: subnetModel.ID, ModelIdentify: "subnet", Data: bson.M{"唯一标识": "subnet-1", "名称": "主子网"}}
+	resSvc.Create(subnet)
+	h1 := &models.Resource{ModelID: hostModel.ID, ModelIdentify: "host", Data: bson.M{"唯一标识": "host-1"}}
+	h2 := &models.Resource{ModelID: hostModel.ID, ModelIdentify: "host", Data: bson.M{"唯一标识": "host-2"}}
+	resSvc.Create(h1)
+	resSvc.Create(h2)
+	d1 := &models.Resource{ModelID: diskModel.ID, ModelIdentify: "disk", Data: bson.M{"唯一标识": "disk-1"}}
+	resSvc.Create(d1)
+
+	relSvc := NewRelationService()
+	rSubnetHost := &models.Relation{ModelID: hostModel.ID, Name: "子网归属", Identify: "subnet_own", TargetModel: subnetModel.ID, Type: "belong", Cardinality: "one-to-one"}
+	relSvc.Create(rSubnetHost)
+	rHostDisk := &models.Relation{ModelID: hostModel.ID, Name: "挂载磁盘", Identify: "mount_disk", TargetModel: diskModel.ID, Type: "connect", Cardinality: "one-to-many"}
+	relSvc.Create(rHostDisk)
+
+	instSvc := NewRelationInstanceService()
+	instSvc.Bind(rSubnetHost, h1, subnet)
+	instSvc.Bind(rHostDisk, h1, d1)
+
+	g, err := instSvc.Graph(h1.ID.Hex(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Center != h1.ID.Hex() {
+		t.Errorf("Center expected %s, got %s", h1.ID.Hex(), g.Center)
+	}
+	if len(g.Nodes) != 3 {
+		t.Errorf("depth=1: expected 3 nodes, got %d", len(g.Nodes))
+	}
+	for _, n := range g.Nodes {
+		if n.ID == h2.ID.Hex() {
+			t.Error("host-2 should not appear in graph")
+		}
+	}
+
+	g0, _ := instSvc.Graph(h1.ID.Hex(), 0)
+	if len(g0.Nodes) != 1 {
+		t.Errorf("depth=0: expected 1 node, got %d", len(g0.Nodes))
+	}
+	if len(g0.Edges) != 0 {
+		t.Errorf("depth=0: expected 0 edges, got %d", len(g0.Edges))
+	}
+}

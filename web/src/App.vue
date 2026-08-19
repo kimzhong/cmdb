@@ -69,6 +69,8 @@ export default defineComponent({
       { key: 'model', label: '模型管理' },
       { key: 'tag', label: '标签管理' },
       { key: 'search', label: '全局搜索' },
+      { key: 'tree', label: '资源层级' },
+      { key: 'graph', label: '关系图' },
     ]
 
     const handleMenuClick = ({ key }) => {

@@ -46,6 +46,9 @@
                   <a-button type="link" size="small" @click="viewResource(record)">
                     查看
                   </a-button>
+                  <a-button type="link" size="small" @click="goGraph(record)">
+                    关系图
+                  </a-button>
                   <a-button type="link" size="small" @click="editResource(record)">
                     编辑
                   </a-button>
@@ -232,7 +235,7 @@
 
 <script>
 import { defineComponent, ref, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { PlusOutlined, AppstoreOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import api from '../api'
@@ -514,6 +517,11 @@ export default defineComponent({
     }
 
     const viewResourceById = async (id) => {
+
+const goGraph = (record) => {
+  router.push({ path: '/graph', query: { center: record.id } })
+}
+
       await viewResource({ id })
     }
 
@@ -544,6 +552,7 @@ export default defineComponent({
     }
 
     // 必须在 setup 同步执行获取 route（Vue Router 规则）
+    const router = useRouter()
     const route = useRoute()
 
     onMounted(async () => {

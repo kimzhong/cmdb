@@ -42,3 +42,8 @@ mongodb-logs/
 
 # 截图 / 调试产物（playwright 截图保留在系统 Temp，不入仓）
 # 但 docs/screenshots/ 是文档用，正式入仓
+
+# ============ Agent / IDE 配置（本地） ============
+.agents/
+.claude/
+skills-lock.json

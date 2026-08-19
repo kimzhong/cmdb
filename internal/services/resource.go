@@ -65,6 +65,23 @@ func (s *ResourceService) Delete(id string) error {
 	return err
 }
 
+// GetByUniqueID 按 "data.唯一标识" 查资源（用于自动发现的幂等 upsert）
+func (s *ResourceService) GetByUniqueID(modelIdentify, uniqueID string) (*models.Resource, error) {
+	if modelIdentify == "" || uniqueID == "" {
+		return nil, errors.New("modelIdentify and uniqueID are required")
+	}
+	filter := bson.M{
+		"model_identify": modelIdentify,
+		"data.唯一标识":      uniqueID,
+	}
+	var r models.Resource
+	err := s.collection.FindOne(context.Background(), filter).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
 func (s *ResourceService) ListByModel(modelID string, page, pageSize int) ([]*models.Resource, int64, error) {
 	objectID, err := primitive.ObjectIDFromHex(modelID)
 	if err != nil {
@@ -243,7 +260,7 @@ func (s *ResourceService) RemoveTag(resourceID string, tagID primitive.ObjectID)
 
 	update := bson.M{
 		"$pull": bson.M{"tags": tagID},
-		"$set":   bson.M{"modify_at": time.Now()},
+		"$set":  bson.M{"modify_at": time.Now()},
 	}
 
 	_, err = s.collection.UpdateOne(context.Background(), bson.M{"_id": objectID}, update)
@@ -278,7 +295,7 @@ func (s *ResourceService) DeleteRelation(resourceID, relationIdentify string, ta
 
 	update := bson.M{
 		"$pull": bson.M{"relations." + relationIdentify: bson.M{"$in": targetIDs}},
-		"$set":   bson.M{"modify_at": time.Now()},
+		"$set":  bson.M{"modify_at": time.Now()},
 	}
 
 	_, err = s.collection.UpdateOne(context.Background(), bson.M{"_id": objectID}, update)
@@ -603,8 +620,8 @@ func ListAllModels() ([]map[string]string, error) {
 	var result []map[string]string
 	for _, m := range models {
 		result = append(result, map[string]string{
-			"id":   m.ID.Hex(),
-			"name": m.Name,
+			"id":       m.ID.Hex(),
+			"name":     m.Name,
 			"identify": m.Identify,
 		})
 	}
